@@ -1,0 +1,116 @@
+:root {
+    color-scheme: light;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f2933;
+    background: #f4f7f9;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+}
+
+.page-shell {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 2rem 1rem;
+}
+
+.intro {
+    width: min(100%, 42rem);
+    padding: clamp(2rem, 6vw, 4rem);
+    background: #ffffff;
+    border: 1px solid #d9e2e8;
+    border-radius: 0.5rem;
+    box-shadow: 0 1rem 2.5rem rgb(31 41 51 / 8%);
+}
+
+.eyebrow {
+    margin: 0 0 1rem;
+    color: #176b87;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+h1 {
+    max-width: 31rem;
+    margin: 0;
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    line-height: 1.08;
+}
+
+.description {
+    max-width: 34rem;
+    margin: 1.25rem 0 0;
+    color: #52616b;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.search-form {
+    margin-top: 2rem;
+}
+
+.search-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.search-controls {
+    display: flex;
+    gap: 0.75rem;
+}
+
+input,
+button {
+    min-height: 2.75rem;
+    border-radius: 0.35rem;
+    font: inherit;
+}
+
+input {
+    min-width: 0;
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #aebdc6;
+}
+
+button {
+    padding: 0.6rem 1rem;
+    border: 1px solid #176b87;
+    color: #ffffff;
+    background: #176b87;
+    cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+    background: #12556b;
+}
+
+input:focus-visible,
+button:focus-visible {
+    outline: 3px solid rgb(23 107 135 / 25%);
+    outline-offset: 2px;
+}
+
+.status {
+    margin: 1rem 0 0;
+    color: #687781;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 30rem) {
+    .search-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

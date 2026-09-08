@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>News History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <main class="page-shell">
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">News History</p>
+            <h1 id="page-title">Understand how a news topic develops over time.</h1>
+            <p class="description">
+                News History will help you explore the reporting and context behind a topic,
+                person, organization, event, or issue.
+            </p>
+
+            <form class="search-form" action="#" method="get">
+                <label for="topic-search">Search for a news topic</label>
+                <div class="search-controls">
+                    <input
+                        id="topic-search"
+                        name="topic"
+                        type="search"
+                        placeholder="Try a topic, person, or event"
+                    >
+                    <button type="submit">Search</button>
+                </div>
+            </form>
+
+            <p class="status" role="status">
+                Search functionality will be implemented in a later step.
+            </p>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
