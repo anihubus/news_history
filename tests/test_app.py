@@ -12,6 +12,7 @@ class AppTestCase(unittest.TestCase):
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b"News History", response.data)
 
 
 if __name__ == "__main__":

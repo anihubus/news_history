@@ -7,31 +7,53 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <main class="page-shell">
-        <section class="intro" aria-labelledby="page-title">
-            <p class="eyebrow">News History</p>
-            <h1 id="page-title">Understand how a news topic develops over time.</h1>
+    <header class="site-header">
+        <div class="page-width header-content">
+            <a class="brand" href="{{ url_for('main.index') }}">News History</a>
+            <span class="header-label">Context, over time</span>
+        </div>
+    </header>
+
+    <main class="page-width page-content">
+        <section class="hero" aria-labelledby="page-title">
+            <p class="eyebrow">Research the story behind the story</p>
+            <h1 id="page-title">Explore the chronological history of a news topic.</h1>
             <p class="description">
-                News History will help you explore the reporting and context behind a topic,
-                person, organization, event, or issue.
+                News History will help you understand how a topic develops through reporting,
+                context, and time.
             </p>
 
-            <form class="search-form" action="#" method="get">
-                <label for="topic-search">Search for a news topic</label>
+            <form class="search-form" id="search-form" action="#" method="get">
+                <label for="topic-search">What would you like to understand?</label>
                 <div class="search-controls">
                     <input
                         id="topic-search"
                         name="topic"
                         type="search"
-                        placeholder="Try a topic, person, or event"
+                        placeholder="Search a topic, person, organization, event, or issue..."
+                        autocomplete="off"
                     >
                     <button type="submit">Search</button>
                 </div>
+                <p class="search-note">Search functionality will be connected in a later step.</p>
+                <p class="status" id="search-status" role="status" aria-live="polite"></p>
             </form>
+        </section>
 
-            <p class="status" role="status">
-                Search functionality will be implemented in a later step.
-            </p>
+        <section class="results-section" aria-labelledby="results-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Your research space</p>
+                    <h2 id="results-title">Historical results</h2>
+                </div>
+                <span class="results-count">No results yet</span>
+            </div>
+
+            <div class="results-empty" aria-live="polite">
+                <span class="empty-mark" aria-hidden="true">+</span>
+                <h3>Start with a topic</h3>
+                <p>Results and their historical context will appear here after a search.</p>
+            </div>
         </section>
     </main>
 

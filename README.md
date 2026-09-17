@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 2, project foundation, is complete. The project currently provides a Flask application factory, a homepage, a basic responsive frontend shell, and a homepage test. Search, news retrieval, persistence, grouping, timeline generation, and AI features are planned for later steps.
+Step 3, frontend foundation, is complete. The project currently provides a Flask application factory, a responsive News History interface, a search placeholder with temporary feedback, and a homepage test. Search connections, news retrieval, persistence, grouping, timeline generation, and AI features are planned for later steps.
 
 ## Setup
 
@@ -43,5 +43,5 @@ Then open `http://127.0.0.1:5000/` in a browser.
 ## Run tests
 
 ```text
-python -m unittest discover -s tests
+python -m pytest
 ```
