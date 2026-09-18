@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 3, frontend foundation, is complete. The project currently provides a Flask application factory, a responsive News History interface, a search placeholder with temporary feedback, and a homepage test. Search connections, news retrieval, persistence, grouping, timeline generation, and AI features are planned for later steps.
+Step 4, backend search foundation, is complete. The project provides a Flask application factory, a responsive News History interface, and a service-backed search pipeline. Real news retrieval, persistence, grouping, timeline generation, and AI features are planned for later steps.
 
 ## Setup
 
@@ -39,6 +39,18 @@ python run.py
 ```
 
 Then open `http://127.0.0.1:5000/` in a browser.
+
+## Search endpoint
+
+The frontend sends searches to `POST /api/search` with a JSON body:
+
+```json
+{
+	"query": "climate change"
+}
+```
+
+Valid searches return a normalized response with `success`, the trimmed `query`, an empty `results` array, and a development message. Empty queries and requests without valid JSON return a client error. Real news retrieval is not connected yet.
 
 ## Run tests
 
