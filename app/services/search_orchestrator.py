@@ -4,8 +4,9 @@ from app.providers.gdelt_provider import ProviderError, RateLimitError
 class SearchOrchestrator:
     """Coordinate search validation and provider retrieval."""
 
-    def __init__(self, search_service):
+    def __init__(self, search_service, article_repository):
         self.search_service = search_service
+        self.article_repository = article_repository
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -31,6 +32,8 @@ class SearchOrchestrator:
                 "query": normalized_query,
                 "error": "The news provider is temporarily unavailable.",
             }
+
+        self.article_repository.save_articles(articles)
 
         return {
             "success": True,
