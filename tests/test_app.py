@@ -1,4 +1,5 @@
 import unittest
+from tempfile import TemporaryDirectory
 
 from app import create_app
 from app.models.article import Article
@@ -19,11 +20,24 @@ class StubProvider:
 
 class AppTestCase(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
+        self.database_directory = TemporaryDirectory()
+        self.app = create_app(
+            {
+                "TESTING": True,
+                "NEWS_PROVIDER": "mock",
+                "DATABASE_PATH": f"{self.database_directory.name}/test.db",
+            }
+        )
         self.client = self.app.test_client()
 
     def set_provider(self, provider):
-        self.app.extensions["search_orchestrator"] = SearchOrchestrator(provider)
+        self.app.extensions["search_orchestrator"] = SearchOrchestrator(
+            provider,
+            self.app.extensions["article_repository"],
+        )
+
+    def tearDown(self):
+        self.database_directory.cleanup()
 
     def test_homepage_returns_success(self):
         response = self.client.get("/")
@@ -52,6 +66,7 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.json["query"], "climate change")
         self.assertEqual(response.json["message"], None)
         self.assertEqual(response.json["results"][0], article.to_dict())
+        self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
 
     def test_search_with_empty_query_returns_client_error(self):
         self.set_provider(StubProvider())
