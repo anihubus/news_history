@@ -217,6 +217,52 @@ h2 {
     color: #657477;
 }
 
+.is-hidden {
+    display: none;
+}
+
+.results-list {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.article-card {
+    padding: 1.25rem 1.35rem;
+    border: 1px solid #d5e2de;
+    border-radius: 0.5rem;
+    background: #ffffff;
+}
+
+.article-card h3 {
+    margin-top: 0.45rem;
+    font-size: 1.15rem;
+    line-height: 1.35;
+}
+
+.article-card h3 a {
+    color: #173f42;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.15em;
+}
+
+.article-card h3 a:hover,
+.article-card h3 a:focus-visible {
+    color: #245e5d;
+}
+
+.article-source,
+.article-date {
+    margin: 0;
+    color: #657477;
+    font-size: 0.85rem;
+}
+
+.article-source {
+    color: #2c7772;
+    font-weight: 700;
+}
+
 @media (max-width: 30rem) {
     .search-controls {
         align-items: stretch;
