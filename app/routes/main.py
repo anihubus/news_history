@@ -1,11 +1,7 @@
-from flask import Blueprint, jsonify, render_template, request
-
-from app.services.search_orchestrator import SearchOrchestrator
-from app.services.temporary_search import TemporarySearchService
+from flask import Blueprint, current_app, jsonify, render_template, request
 
 
 main_bp = Blueprint("main", __name__)
-search_orchestrator = SearchOrchestrator(TemporarySearchService())
 
 
 @main_bp.get("/")
@@ -22,9 +18,12 @@ def search():
     if not isinstance(payload, dict):
         return jsonify({"success": False, "error": "Request body must be a JSON object."}), 400
 
-    try:
-        result = search_orchestrator.search(payload.get("query"))
-    except ValueError as error:
-        return jsonify({"success": False, "error": str(error)}), 400
+    result = current_app.extensions["search_orchestrator"].search(payload.get("query"))
+    if not result["success"]:
+        status_code = {
+            "rate_limited": 429,
+            "provider_unavailable": 502,
+        }.get(result.get("status"), 400)
+        return jsonify(result), status_code
 
     return jsonify(result), 200
