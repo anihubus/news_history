@@ -11,6 +11,9 @@ __pycache__/
 # Environment files
 .env
 
+# Local SQLite database
+instance/
+
 # Test and coverage artifacts
 .pytest_cache/
 .coverage

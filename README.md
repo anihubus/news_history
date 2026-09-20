@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 5, real news provider integration, is complete. The project provides a Flask application factory, a responsive News History interface, and a service-backed search pipeline connected to GDELT DOC 2.0. Persistence, history reconstruction, grouping, timeline generation, and AI features are planned for later steps.
+Step 6, SQLite persistence and canonical URL deduplication, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, and an SQLite article repository. History reconstruction, grouping, timeline generation, and AI features are planned for later steps.
 
 ## Setup
 
@@ -69,6 +69,19 @@ The frontend sends searches to `POST /api/search` with a JSON body. The Flask ro
 ```
 
 Valid searches return normalized article results in the provider order. Each result includes a title, original URL, publisher, publication date when available, nullable description, and `source_provider`. Empty queries return a client error; provider failures return a controlled server error. GDELT retrieves available matching coverage and is not the complete historical archive for a topic. Persistence and historical reconstruction will be implemented in later steps.
+
+## SQLite database
+
+The application automatically initializes an SQLite database at `instance/news_history.db` when it starts. The `articles` table stores normalized article metadata, retrieval timestamps, and canonical URLs. Canonical URL uniqueness prevents the same article from being inserted more than once while preserving different URLs.
+
+Set `DATABASE_PATH` to use a different database location:
+
+```powershell
+$env:DATABASE_PATH = "path/to/news_history.db"
+python run.py
+```
+
+The database uses Python's built-in `sqlite3` module; no manual SQL commands or additional database packages are required.
 
 ## Run tests
 
