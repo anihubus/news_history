@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 6, SQLite persistence and canonical URL deduplication, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, and an SQLite article repository. History reconstruction, grouping, timeline generation, and AI features are planned for later steps.
+Step 8, explainable related-news detection and grouping, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, and deterministic article grouping. Timeline generation and AI features are planned for later steps.
 
 ## Setup
 
@@ -68,7 +68,26 @@ The frontend sends searches to `POST /api/search` with a JSON body. The Flask ro
 }
 ```
 
-Valid searches return normalized article results in the provider order. Each result includes a title, original URL, publisher, publication date when available, nullable description, and `source_provider`. Empty queries return a client error; provider failures return a controlled server error. GDELT retrieves available matching coverage and is not the complete historical archive for a topic. Persistence and historical reconstruction will be implemented in later steps.
+Valid searches first check stored articles by title, description, and publisher, then query the selected provider for new results. Results are persisted, combined, deduplicated by canonical URL, and sorted newest-first by `publication_date`. Articles without a valid publication date appear after dated articles in deterministic URL order. `retrieved_at` remains separate from `publication_date`.
+
+The final result count is controlled by `SEARCH_RESULT_LIMIT`, which defaults to `20`:
+
+```powershell
+$env:SEARCH_RESULT_LIMIT = "20"
+python run.py
+```
+
+If the provider is unavailable or rate-limited, matching stored articles are still returned with a provider status. If no stored matches exist, the API returns a controlled provider error without exposing exceptions. GDELT retrieves available matching coverage and is not the complete historical archive for a topic.
+
+## Related article grouping
+
+Articles are automatically grouped using a deterministic, explainable heuristic. Title and description text is lowercased, punctuation and extra whitespace are normalized, common stop words and very short tokens are removed, and title tokens receive twice the weight of description tokens. Similarity is calculated as:
+
+```text
+weighted shared keywords / weighted union of keywords
+```
+
+The default `RELATED_ARTICLE_THRESHOLD` is `0.30` and can be configured through the environment. Relationships are stored explicitly in SQLite with their similarity score and reason. Groups use deterministic representative titles and are an automatic interpretation, not proof that articles describe the same event. Future versions may replace this heuristic with more advanced NLP or embedding methods.
 
 ## SQLite database
 
