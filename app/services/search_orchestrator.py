@@ -1,12 +1,22 @@
-from app.providers.gdelt_provider import ProviderError, RateLimitError
+from app.services.article_retrieval_service import ArticleRetrievalService
+from app.services.article_grouping_service import ArticleGroupingService
 
 
 class SearchOrchestrator:
     """Coordinate search validation and provider retrieval."""
 
-    def __init__(self, search_service, article_repository):
+    def __init__(self, search_service, article_repository, result_limit=20, relationship_threshold=0.30):
         self.search_service = search_service
         self.article_repository = article_repository
+        self.retrieval_service = ArticleRetrievalService(
+            article_repository,
+            search_service,
+            result_limit=result_limit,
+        )
+        self.grouping_service = ArticleGroupingService(
+            article_repository,
+            threshold=relationship_threshold,
+        )
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -16,28 +26,28 @@ class SearchOrchestrator:
             }
 
         normalized_query = query.strip()
-        try:
-            articles = self.search_service.search(normalized_query)
-        except RateLimitError:
+        retrieval = self.retrieval_service.search(normalized_query)
+        grouping = self.grouping_service.group_articles(retrieval.articles)
+
+        if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
                 "success": False,
-                "status": "rate_limited",
+                "status": retrieval.provider_status,
                 "query": normalized_query,
-                "error": "The news provider is temporarily rate-limited. Please wait before trying again.",
-            }
-        except ProviderError:
-            return {
-                "success": False,
-                "status": "provider_unavailable",
-                "query": normalized_query,
-                "error": "The news provider is temporarily unavailable.",
+                "results": [],
+                "groups": grouping["groups"],
+                "error": retrieval.provider_error,
             }
 
-        self.article_repository.save_articles(articles)
-
-        return {
+        result = {
             "success": True,
             "query": normalized_query,
-            "results": [article.to_dict() for article in articles],
+            "results": [article.to_dict() for article in retrieval.articles],
             "message": None,
+            "provider_status": retrieval.provider_status,
+            "groups": grouping["groups"],
+            "relationships": grouping["relationships"],
         }
+        if retrieval.provider_error:
+            result["message"] = retrieval.provider_error
+        return result

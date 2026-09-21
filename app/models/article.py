@@ -10,6 +10,9 @@ class Article:
     publication_date: Optional[str]
     description: Optional[str]
     source_provider: str
+    article_id: Optional[int] = None
 
     def to_dict(self):
-        return asdict(self)
+        data = asdict(self)
+        data.pop("article_id", None)
+        return data

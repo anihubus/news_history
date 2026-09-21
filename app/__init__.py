@@ -25,6 +25,8 @@ def create_app(test_config=None):
         GDELT_MAX_RESULTS=int(os.getenv("GDELT_MAX_RESULTS", "10")),
         GDELT_TIMEOUT=float(os.getenv("GDELT_TIMEOUT", "10")),
         DATABASE_PATH=os.getenv("DATABASE_PATH", "instance/news_history.db"),
+        SEARCH_RESULT_LIMIT=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
+        RELATED_ARTICLE_THRESHOLD=float(os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")),
     )
     if test_config:
         app.config.update(test_config)
@@ -44,7 +46,12 @@ def create_app(test_config=None):
 
     repository = ArticleRepository(app.config["DATABASE_PATH"])
     app.extensions["article_repository"] = repository
-    app.extensions["search_orchestrator"] = SearchOrchestrator(provider, repository)
+    app.extensions["search_orchestrator"] = SearchOrchestrator(
+        provider,
+        repository,
+        result_limit=app.config["SEARCH_RESULT_LIMIT"],
+        relationship_threshold=app.config["RELATED_ARTICLE_THRESHOLD"],
+    )
 
     from app.routes.main import main_bp
 

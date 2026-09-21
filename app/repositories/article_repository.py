@@ -88,6 +88,80 @@ class ArticleRepository:
     def save_articles(self, articles, retrieved_at=None):
         return [self.save_article(article, retrieved_at=retrieved_at) for article in articles]
 
+    def get_articles_by_canonical_urls(self, urls):
+        canonical_urls = [canonicalize_url(url) for url in urls]
+        if not canonical_urls:
+            return []
+
+        placeholders = ", ".join("?" for _ in canonical_urls)
+        with self._connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM articles WHERE canonical_url IN ({placeholders})",
+                canonical_urls,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def save_relationship(self, article_id, related_article_id, similarity_score, reason):
+        created_at = self._timestamp()
+        first_id, second_id = sorted((article_id, related_article_id))
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO article_relationships (
+                    article_id, related_article_id, similarity_score,
+                    relationship_type, reason, created_at
+                ) VALUES (?, ?, ?, 'related', ?, ?)
+                ON CONFLICT(article_id, related_article_id) DO UPDATE SET
+                    similarity_score = excluded.similarity_score,
+                    reason = excluded.reason
+                """,
+                (first_id, second_id, similarity_score, reason, created_at),
+            )
+            connection.commit()
+
+    def save_group(self, article_ids, representative_article_id, representative_title):
+        created_at = self._timestamp()
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO article_groups (
+                    representative_article_id, representative_title, created_at
+                ) VALUES (?, ?, ?)
+                """,
+                (representative_article_id, representative_title, created_at),
+            )
+            group_id = cursor.lastrowid
+            connection.executemany(
+                "INSERT INTO article_group_members (group_id, article_id) VALUES (?, ?)",
+                [(group_id, article_id) for article_id in article_ids],
+            )
+            connection.commit()
+        return group_id
+
+    def get_groups(self):
+        with self._connection() as connection:
+            groups = connection.execute("SELECT * FROM article_groups ORDER BY id").fetchall()
+            result = []
+            for group in groups:
+                members = connection.execute(
+                    "SELECT article_id FROM article_group_members WHERE group_id = ? ORDER BY article_id",
+                    (group["id"],),
+                ).fetchall()
+                result.append(
+                    {
+                        **dict(group),
+                        "article_ids": [member["article_id"] for member in members],
+                    }
+                )
+        return result
+
+    def get_relationships(self):
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM article_relationships ORDER BY id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def find_by_canonical_url(self, url):
         canonical_url = canonicalize_url(url)
         with self._connection() as connection:
@@ -106,6 +180,28 @@ class ArticleRepository:
 
         with self._connection() as connection:
             rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+
+    def search_articles(self, query, limit=None):
+        normalized_query = query.strip().lower()
+        if not normalized_query:
+            return []
+
+        pattern = f"%{normalized_query}%"
+        sql = """
+            SELECT * FROM articles
+            WHERE LOWER(title) LIKE ?
+               OR LOWER(COALESCE(description, '')) LIKE ?
+               OR LOWER(COALESCE(publisher, '')) LIKE ?
+            ORDER BY id
+        """
+        parameters = (pattern, pattern, pattern)
+        if limit is not None:
+            sql += " LIMIT ?"
+            parameters += (limit,)
+
+        with self._connection() as connection:
+            rows = connection.execute(sql, parameters).fetchall()
         return [dict(row) for row in rows]
 
     def count_articles(self):
