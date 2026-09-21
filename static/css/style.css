@@ -263,6 +263,33 @@ h2 {
     font-weight: 700;
 }
 
+.groups-list {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+}
+
+.article-group {
+    padding: 1rem 1.25rem;
+    border-left: 3px solid #2c7772;
+    background: #eef5f2;
+}
+
+.article-group h3,
+.group-note {
+    margin: 0;
+}
+
+.article-group h3 {
+    font-size: 1rem;
+}
+
+.group-note {
+    margin-top: 0.25rem;
+    color: #657477;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 30rem) {
     .search-controls {
         align-items: stretch;

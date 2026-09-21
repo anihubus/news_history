@@ -7,6 +7,7 @@
         const resultsCount = document.querySelector(".results-count");
         const emptyState = document.querySelector(".results-empty");
         const resultsList = document.querySelector("#results-list");
+        const groupsList = document.querySelector("#groups-list");
         let requestInProgress = false;
         const rateLimitMessage = "The news provider is temporarily rate-limited. Please wait a few seconds and try again.";
         const providerErrorMessage = "The news provider is temporarily unavailable.";
@@ -33,7 +34,29 @@
 
         const clearResults = () => {
             resultsList.replaceChildren();
+            groupsList?.replaceChildren();
             emptyState?.classList.add("is-hidden");
+        };
+
+        const renderGroups = (groups) => {
+            if (!groupsList) {
+                return;
+            }
+            groupsList.replaceChildren();
+            groups.filter((group) => group.article_count > 1).forEach((group, index) => {
+                const section = document.createElement("section");
+                section.className = "article-group";
+
+                const heading = document.createElement("h3");
+                heading.textContent = `Related group ${index + 1}: ${group.representative_title}`;
+
+                const note = document.createElement("p");
+                note.className = "group-note";
+                note.textContent = "Automatically grouped based on article similarity.";
+
+                section.append(heading, note);
+                groupsList.append(section);
+            });
         };
 
         const createArticleCard = (article) => {
@@ -108,14 +131,21 @@
                         "0 results"
                     );
                     resultsList.replaceChildren();
+                    groupsList?.replaceChildren();
                     searchStatus.textContent = "No articles were returned by the provider.";
                 } else {
                     renderResults(data.results);
-                    searchStatus.textContent = `${data.results.length} articles found.`;
+                    renderGroups(data.groups || []);
+                    searchStatus.textContent = data.provider_status === "rate_limited"
+                        ? `${data.results.length} stored articles found. The provider is temporarily rate-limited.`
+                        : data.provider_status === "provider_unavailable"
+                            ? `${data.results.length} stored articles found. The provider is temporarily unavailable.`
+                            : `${data.results.length} articles found.`;
                 }
             } catch (error) {
                 showEmptyState("Search unavailable", "Try again when the news provider is available.");
                 resultsList.replaceChildren();
+                groupsList?.replaceChildren();
                 searchStatus.textContent = error.message === rateLimitMessage
                     ? rateLimitMessage
                     : providerErrorMessage;
