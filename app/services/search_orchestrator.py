@@ -1,5 +1,6 @@
 from app.services.article_retrieval_service import ArticleRetrievalService
 from app.services.article_grouping_service import ArticleGroupingService
+from app.services.timeline_service import TimelineService
 
 
 class SearchOrchestrator:
@@ -17,6 +18,7 @@ class SearchOrchestrator:
             article_repository,
             threshold=relationship_threshold,
         )
+        self.timeline_service = TimelineService()
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -28,6 +30,10 @@ class SearchOrchestrator:
         normalized_query = query.strip()
         retrieval = self.retrieval_service.search(normalized_query)
         grouping = self.grouping_service.group_articles(retrieval.articles)
+        timeline = self.timeline_service.generate(
+            retrieval.articles,
+            grouping["groups"],
+        )
 
         if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
@@ -36,6 +42,8 @@ class SearchOrchestrator:
                 "query": normalized_query,
                 "results": [],
                 "groups": grouping["groups"],
+                "relationships": grouping["relationships"],
+                "timeline": timeline,
                 "error": retrieval.provider_error,
             }
 
@@ -47,6 +55,7 @@ class SearchOrchestrator:
             "provider_status": retrieval.provider_status,
             "groups": grouping["groups"],
             "relationships": grouping["relationships"],
+            "timeline": timeline,
         }
         if retrieval.provider_error:
             result["message"] = retrieval.provider_error
