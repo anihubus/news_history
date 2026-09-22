@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 8, explainable related-news detection and grouping, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, and deterministic article grouping. Timeline generation and AI features are planned for later steps.
+Step 9, historical timeline generation, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic article grouping, and an automatically assembled timeline. AI features are planned for later steps.
 
 ## Setup
 
@@ -88,6 +88,12 @@ weighted shared keywords / weighted union of keywords
 ```
 
 The default `RELATED_ARTICLE_THRESHOLD` is `0.30` and can be configured through the environment. Relationships are stored explicitly in SQLite with their similarity score and reason. Groups use deterministic representative titles and are an automatic interpretation, not proof that articles describe the same event. Future versions may replace this heuristic with more advanced NLP or embedding methods.
+
+## Historical timeline
+
+After retrieval and grouping, the Timeline Service derives a chronological view at search time. Multi-article groups produce one entry using the earliest valid `publication_date` and all supporting article IDs. Unrelated articles produce individual entries. Dates are normalized from supported provider formats; missing or invalid dates remain unknown and are placed after valid dates. `retrieved_at` is never used as a historical date.
+
+Timeline entries are automatically assembled interpretations of available reporting, not definitive historical records. They do not invent events, infer causality, or replace source inspection. No separate timeline table is used in this MVP.
 
 ## SQLite database
 
