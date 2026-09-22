@@ -68,6 +68,8 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.json["results"][0], article.to_dict())
         self.assertIn("groups", response.json)
         self.assertEqual(response.json["groups"][0]["article_count"], 1)
+        self.assertIn("timeline", response.json)
+        self.assertEqual(len(response.json["timeline"]), 1)
         self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
 
     def test_search_with_empty_query_returns_client_error(self):
