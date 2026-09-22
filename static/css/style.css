@@ -280,6 +280,68 @@ h2 {
     margin: 0;
 }
 
+.timeline-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #dce5e1;
+}
+
+.timeline-note,
+.timeline-empty,
+.timeline-source-note {
+    color: #657477;
+    font-size: 0.9rem;
+}
+
+.timeline-list {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.timeline-entry {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #e1e9e5;
+}
+
+.timeline-date {
+    color: #2c7772;
+    font-weight: 700;
+}
+
+.timeline-entry h3,
+.timeline-entry p {
+    margin: 0;
+}
+
+.timeline-entry p {
+    margin-top: 0.35rem;
+    color: #536468;
+}
+
+.timeline-source-note {
+    font-size: 0.8rem;
+}
+
+.timeline-sources {
+    font-size: 0.8rem;
+}
+
+.timeline-sources a {
+    color: #245e5d;
+    font-weight: 700;
+}
+
+@media (max-width: 30rem) {
+    .timeline-entry {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+}
+
 .article-group h3 {
     font-size: 1rem;
 }

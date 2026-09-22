@@ -8,6 +8,8 @@
         const emptyState = document.querySelector(".results-empty");
         const resultsList = document.querySelector("#results-list");
         const groupsList = document.querySelector("#groups-list");
+        const timelineList = document.querySelector("#timeline-list");
+        const timelineEmpty = document.querySelector("#timeline-empty");
         let requestInProgress = false;
         const rateLimitMessage = "The news provider is temporarily rate-limited. Please wait a few seconds and try again.";
         const providerErrorMessage = "The news provider is temporarily unavailable.";
@@ -35,6 +37,11 @@
         const clearResults = () => {
             resultsList.replaceChildren();
             groupsList?.replaceChildren();
+            timelineList?.replaceChildren();
+            if (timelineEmpty) {
+                timelineEmpty.textContent = "Timeline entries will appear after a search.";
+                timelineEmpty.classList.remove("is-hidden");
+            }
             emptyState?.classList.add("is-hidden");
         };
 
@@ -56,6 +63,52 @@
 
                 section.append(heading, note);
                 groupsList.append(section);
+            });
+        };
+
+        const renderTimeline = (timeline) => {
+            if (!timelineList || !timelineEmpty) {
+                return;
+            }
+            timelineList.replaceChildren();
+            timelineEmpty.classList.toggle("is-hidden", timeline.length > 0);
+            if (timeline.length === 0) {
+                timelineEmpty.textContent = "No timeline entries could be assembled from these results.";
+                return;
+            }
+
+            timeline.forEach((entry) => {
+                const item = document.createElement("article");
+                item.className = "timeline-entry";
+
+                const date = document.createElement("time");
+                date.className = "timeline-date";
+                date.textContent = entry.date || "Date unavailable";
+
+                const content = document.createElement("div");
+                const title = document.createElement("h3");
+                title.textContent = entry.title;
+                const description = document.createElement("p");
+                description.textContent = entry.description || "Automatically assembled from available article metadata.";
+                const sourceNote = document.createElement("p");
+                sourceNote.className = "timeline-source-note";
+                sourceNote.textContent = `${entry.article_ids.length} supporting article${entry.article_ids.length === 1 ? "" : "s"}`;
+                const sources = document.createElement("p");
+                sources.className = "timeline-sources";
+                entry.supporting_articles.forEach((article, index) => {
+                    const link = document.createElement("a");
+                    link.href = article.url;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                    link.textContent = `Source ${index + 1}`;
+                    sources.append(link);
+                    if (index < entry.supporting_articles.length - 1) {
+                        sources.append(" · ");
+                    }
+                });
+                content.append(title, description, sourceNote, sources);
+                item.append(date, content);
+                timelineList.append(item);
             });
         };
 
@@ -132,10 +185,12 @@
                     );
                     resultsList.replaceChildren();
                     groupsList?.replaceChildren();
+                    renderTimeline([]);
                     searchStatus.textContent = "No articles were returned by the provider.";
                 } else {
                     renderResults(data.results);
                     renderGroups(data.groups || []);
+                    renderTimeline(data.timeline || []);
                     searchStatus.textContent = data.provider_status === "rate_limited"
                         ? `${data.results.length} stored articles found. The provider is temporarily rate-limited.`
                         : data.provider_status === "provider_unavailable"
