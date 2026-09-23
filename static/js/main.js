@@ -10,6 +10,11 @@
         const groupsList = document.querySelector("#groups-list");
         const timelineList = document.querySelector("#timeline-list");
         const timelineEmpty = document.querySelector("#timeline-empty");
+        const summaryContent = document.querySelector("#summary-content");
+        const questionForm = document.querySelector("#question-form");
+        const questionInput = document.querySelector("#question-input");
+        const questionStatus = document.querySelector("#question-status");
+        let activeQuery = "";
         let requestInProgress = false;
         const rateLimitMessage = "The news provider is temporarily rate-limited. Please wait a few seconds and try again.";
         const providerErrorMessage = "The news provider is temporarily unavailable.";
@@ -38,6 +43,9 @@
             resultsList.replaceChildren();
             groupsList?.replaceChildren();
             timelineList?.replaceChildren();
+            if (summaryContent) {
+                summaryContent.textContent = "A summary will appear after a search.";
+            }
             if (timelineEmpty) {
                 timelineEmpty.textContent = "Timeline entries will appear after a search.";
                 timelineEmpty.classList.remove("is-hidden");
@@ -112,6 +120,13 @@
             });
         };
 
+        const renderSummary = (summary) => {
+            if (!summaryContent) {
+                return;
+            }
+            summaryContent.textContent = summary?.summary || "Summary temporarily unavailable.";
+        };
+
         const createArticleCard = (article) => {
             const card = document.createElement("article");
             card.className = "article-card";
@@ -159,6 +174,7 @@
             }
 
             requestInProgress = true;
+            activeQuery = query;
             searchStatus.textContent = "Searching...";
             searchButton?.setAttribute("disabled", "disabled");
 
@@ -186,11 +202,13 @@
                     resultsList.replaceChildren();
                     groupsList?.replaceChildren();
                     renderTimeline([]);
+                    renderSummary(null);
                     searchStatus.textContent = "No articles were returned by the provider.";
                 } else {
                     renderResults(data.results);
                     renderGroups(data.groups || []);
                     renderTimeline(data.timeline || []);
+                    renderSummary(data.summary);
                     searchStatus.textContent = data.provider_status === "rate_limited"
                         ? `${data.results.length} stored articles found. The provider is temporarily rate-limited.`
                         : data.provider_status === "provider_unavailable"
@@ -201,12 +219,36 @@
                 showEmptyState("Search unavailable", "Try again when the news provider is available.");
                 resultsList.replaceChildren();
                 groupsList?.replaceChildren();
+                renderSummary(null);
                 searchStatus.textContent = error.message === rateLimitMessage
                     ? rateLimitMessage
                     : providerErrorMessage;
             } finally {
                 requestInProgress = false;
                 searchButton?.removeAttribute("disabled");
+            }
+        });
+
+        questionForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const question = questionInput?.value.trim();
+            if (!question || !activeQuery) {
+                questionStatus.textContent = "Search for a topic before asking a question.";
+                return;
+            }
+            questionStatus.textContent = "Preparing an answer from the available sources...";
+            try {
+                const response = await fetch("/api/question", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question, query: activeQuery }),
+                });
+                const data = await response.json();
+                questionStatus.textContent = data.success
+                    ? `${data.answer} Supporting articles: ${data.supporting_article_ids.join(", ") || "none"}.`
+                    : data.error;
+            } catch (error) {
+                questionStatus.textContent = "Answer temporarily unavailable.";
             }
         });
     };

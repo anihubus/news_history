@@ -58,6 +58,26 @@
             <div class="results-list" id="results-list" aria-live="polite"></div>
             <div class="groups-list" id="groups-list" aria-live="polite"></div>
 
+            <section class="summary-section" aria-labelledby="summary-title">
+                <p class="eyebrow">Grounded context</p>
+                <h2 id="summary-title">AI-generated summary</h2>
+                <p class="summary-note">Automatically generated from the available article sources.</p>
+                <div id="summary-content" class="summary-content">A summary will appear after a search.</div>
+            </section>
+
+            <section class="question-section" aria-labelledby="question-title">
+                <p class="eyebrow">Ask about this story</p>
+                <h2 id="question-title">Grounded question</h2>
+                <form id="question-form" class="question-form">
+                    <label for="question-input">Ask about the available sources</label>
+                    <div class="search-controls">
+                        <input id="question-input" type="text" placeholder="What happened over time?">
+                        <button type="submit">Ask</button>
+                    </div>
+                </form>
+                <p id="question-status" class="status" role="status" aria-live="polite"></p>
+            </section>
+
             <section class="timeline-section" aria-labelledby="timeline-title">
                 <div class="section-heading">
                     <div>

@@ -286,6 +286,30 @@ h2 {
     border-top: 1px solid #dce5e1;
 }
 
+.summary-section,
+.question-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #dce5e1;
+}
+
+.summary-note,
+.summary-content {
+    color: #536468;
+}
+
+.summary-content {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-left: 3px solid #2c7772;
+    background: #eef5f2;
+}
+
+.question-form {
+    max-width: 56rem;
+    margin-top: 1rem;
+}
+
 .timeline-note,
 .timeline-empty,
 .timeline-source-note {
