@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 9, historical timeline generation, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic article grouping, and an automatically assembled timeline. AI features are planned for later steps.
+Step 10, AI summaries and grounded RAG foundation, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, and a mock-first grounded AI layer.
 
 ## Setup
 
@@ -94,6 +94,14 @@ The default `RELATED_ARTICLE_THRESHOLD` is `0.30` and can be configured through 
 After retrieval and grouping, the Timeline Service derives a chronological view at search time. Multi-article groups produce one entry using the earliest valid `publication_date` and all supporting article IDs. Unrelated articles produce individual entries. Dates are normalized from supported provider formats; missing or invalid dates remain unknown and are placed after valid dates. `retrieved_at` is never used as a historical date.
 
 Timeline entries are automatically assembled interpretations of available reporting, not definitive historical records. They do not invent events, infer causality, or replace source inspection. No separate timeline table is used in this MVP.
+
+## AI summaries and grounded context
+
+The Search Orchestrator passes normalized articles, groups, and timeline entries to the replaceable Summary Service. The Summary Service calls the configured AI provider with explicit evidence context only. `MockAIProvider` is the default fallback and produces deterministic summaries without network access. Configure the provider selection with `AI_PROVIDER=mock`; no API key is required or exposed to frontend code.
+
+Summaries are automatically generated from the available News History source data and may be incomplete. They must not invent facts, dates, causes, quotes, or information outside the supplied metadata and descriptions. AI failures do not remove articles, groups, relationships, or timeline results.
+
+The context builder creates the foundation for future grounded question answering from retrieved articles, groups, and timeline entries. `POST /api/question` accepts `question` and `query` and returns a mock grounded answer with supporting article IDs. It does not perform web browsing, vector search, or arbitrary internet access.
 
 ## SQLite database
 

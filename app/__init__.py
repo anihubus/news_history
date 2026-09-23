@@ -5,6 +5,7 @@ from flask import Flask
 from app.database import initialize_database
 from app.providers.gdelt_provider import GDELTProvider
 from app.providers.mock_provider import MockNewsProvider
+from app.providers.ai_provider import MockAIProvider
 from app.repositories.article_repository import ArticleRepository
 from app.services.search_orchestrator import SearchOrchestrator
 
@@ -27,6 +28,7 @@ def create_app(test_config=None):
         DATABASE_PATH=os.getenv("DATABASE_PATH", "instance/news_history.db"),
         SEARCH_RESULT_LIMIT=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
         RELATED_ARTICLE_THRESHOLD=float(os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")),
+        AI_PROVIDER=os.getenv("AI_PROVIDER", "mock").lower(),
     )
     if test_config:
         app.config.update(test_config)
@@ -45,12 +47,15 @@ def create_app(test_config=None):
         raise ValueError("NEWS_PROVIDER must be either 'gdelt' or 'mock'.")
 
     repository = ArticleRepository(app.config["DATABASE_PATH"])
+    ai_provider = MockAIProvider()
+    app.extensions["ai_provider"] = ai_provider
     app.extensions["article_repository"] = repository
     app.extensions["search_orchestrator"] = SearchOrchestrator(
         provider,
         repository,
         result_limit=app.config["SEARCH_RESULT_LIMIT"],
         relationship_threshold=app.config["RELATED_ARTICLE_THRESHOLD"],
+        ai_provider=ai_provider,
     )
 
     from app.routes.main import main_bp

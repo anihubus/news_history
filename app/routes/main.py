@@ -27,3 +27,19 @@ def search():
         return jsonify(result), status_code
 
     return jsonify(result), 200
+
+
+@main_bp.post("/api/question")
+def question():
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Request body must be valid JSON."}), 400
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"success": False, "error": "Request body must be a JSON object."}), 400
+
+    result = current_app.extensions["search_orchestrator"].answer_question(
+        payload.get("question"),
+        payload.get("query"),
+    )
+    return jsonify(result), 200 if result["success"] else 400
