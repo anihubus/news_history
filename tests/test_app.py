@@ -4,6 +4,8 @@ from tempfile import TemporaryDirectory
 from app import create_app
 from app.models.article import Article
 from app.providers.gdelt_provider import ProviderError, RateLimitError
+from app.providers.ai_provider import AIProviderError, MockAIProvider
+from app.services.summary_service import SummaryService
 from app.services.search_orchestrator import SearchOrchestrator
 
 
@@ -34,6 +36,7 @@ class AppTestCase(unittest.TestCase):
         self.app.extensions["search_orchestrator"] = SearchOrchestrator(
             provider,
             self.app.extensions["article_repository"],
+            ai_provider=self.app.extensions["ai_provider"],
         )
 
     def tearDown(self):
@@ -70,7 +73,53 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.json["groups"][0]["article_count"], 1)
         self.assertIn("timeline", response.json)
         self.assertEqual(len(response.json["timeline"]), 1)
+        self.assertIsNotNone(response.json["summary"])
         self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
+
+    def test_api_keeps_core_results_when_summary_fails(self):
+        article = Article(
+            title="Technology update",
+            url="https://example.com/technology",
+            publisher="Example",
+            publication_date="20260918000000",
+            description=None,
+            source_provider="mock",
+        )
+        self.set_provider(StubProvider([article]))
+
+        class FailingProvider(MockAIProvider):
+            def summarize(self, instruction, context):
+                raise AIProviderError("unavailable")
+
+        orchestrator = self.app.extensions["search_orchestrator"]
+        orchestrator.summary_service = SummaryService(FailingProvider())
+        response = self.client.post("/api/search", json={"query": "technology"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json["results"]), 1)
+        self.assertIsNone(response.json["summary"])
+        self.assertIn("timeline", response.json)
+
+    def test_question_endpoint_returns_grounded_answer(self):
+        article = Article(
+            title="Technology update",
+            url="https://example.com/technology-question",
+            publisher="Example",
+            publication_date="20260918000000",
+            description="A reported technology update.",
+            source_provider="mock",
+        )
+        self.set_provider(StubProvider([article]))
+        self.client.post("/api/search", json={"query": "technology"})
+
+        response = self.client.post(
+            "/api/question",
+            json={"question": "What is covered?", "query": "technology"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json["success"])
+        self.assertEqual(response.json["supporting_article_ids"], [1])
 
     def test_search_with_empty_query_returns_client_error(self):
         self.set_provider(StubProvider())
