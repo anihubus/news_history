@@ -4,6 +4,7 @@ from app.services.timeline_service import TimelineService
 from app.services.context_builder import ContextBuilder
 from app.services.summary_service import SummaryService
 from app.services.question_answer_service import QuestionAnswerService
+from app.services.provenance_service import ProvenanceService
 
 
 class SearchOrchestrator:
@@ -25,6 +26,7 @@ class SearchOrchestrator:
         self.context_builder = ContextBuilder()
         self.summary_service = SummaryService(ai_provider) if ai_provider else None
         self.question_answer_service = QuestionAnswerService(ai_provider) if ai_provider else None
+        self.provenance_service = ProvenanceService()
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -46,6 +48,15 @@ class SearchOrchestrator:
             grouping["groups"],
             timeline,
         ) if self.summary_service else []
+        enriched_groups = self.provenance_service.enrich_groups(
+            grouping["groups"], retrieval.articles
+        )
+        enriched_timeline = self.provenance_service.enrich_timeline(
+            timeline, retrieval.articles
+        )
+        enriched_summaries = self.provenance_service.enrich_summaries(
+            summaries, retrieval.articles
+        )
 
         if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
@@ -53,25 +64,25 @@ class SearchOrchestrator:
                 "status": retrieval.provider_status,
                 "query": normalized_query,
                 "results": [],
-                "groups": grouping["groups"],
+                "groups": enriched_groups,
                 "relationships": grouping["relationships"],
-                "timeline": timeline,
-                "summary": self._topic_summary(summaries),
-                "group_summaries": self._group_summaries(summaries),
+                "timeline": enriched_timeline,
+                "summary": self._topic_summary(enriched_summaries),
+                "group_summaries": self._group_summaries(enriched_summaries),
                 "error": retrieval.provider_error,
             }
 
         result = {
             "success": True,
             "query": normalized_query,
-            "results": [article.to_dict() for article in retrieval.articles],
+            "results": [self.provenance_service.article_payload(article) for article in retrieval.articles],
             "message": None,
             "provider_status": retrieval.provider_status,
-            "groups": grouping["groups"],
+            "groups": enriched_groups,
             "relationships": grouping["relationships"],
-            "timeline": timeline,
-            "summary": self._topic_summary(summaries),
-            "group_summaries": self._group_summaries(summaries),
+            "timeline": enriched_timeline,
+            "summary": self._topic_summary(enriched_summaries),
+            "group_summaries": self._group_summaries(enriched_summaries),
         }
         if retrieval.provider_error:
             result["message"] = retrieval.provider_error
@@ -92,4 +103,5 @@ class SearchOrchestrator:
         grouping = self.grouping_service.group_articles(articles)
         timeline = self.timeline_service.generate(articles, grouping["groups"])
         context = self.context_builder.build(normalized_query, articles, grouping["groups"], timeline)
-        return self.question_answer_service.answer(question, context)
+        answer = self.question_answer_service.answer(question, context)
+        return self.provenance_service.enrich_answer(answer, articles)

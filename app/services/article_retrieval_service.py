@@ -34,7 +34,7 @@ class ArticleRetrievalService:
             provider_articles = self.news_provider.search(normalized_query)
             saved_rows = self.article_repository.save_articles(provider_articles)
             provider_articles = [
-                replace(article, article_id=row["id"])
+                replace(article, article_id=row["id"], retrieved_at=row["retrieved_at"])
                 for article, row in zip(provider_articles, saved_rows)
             ]
         except RateLimitError:
@@ -80,4 +80,5 @@ class ArticleRetrievalService:
             description=row["description"],
             source_provider=row["source_provider"],
             article_id=row["id"],
+            retrieved_at=row["retrieved_at"],
         )

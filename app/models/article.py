@@ -11,6 +11,7 @@ class Article:
     description: Optional[str]
     source_provider: str
     article_id: Optional[int] = None
+    retrieved_at: Optional[str] = None
 
     def to_dict(self):
         data = asdict(self)
