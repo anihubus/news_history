@@ -67,9 +67,26 @@
 
                 const note = document.createElement("p");
                 note.className = "group-note";
-                note.textContent = "Automatically grouped based on article similarity.";
+                note.textContent = "AUTOMATIC GROUPING: Automatically grouped based on article similarity.";
 
-                section.append(heading, note);
+                const sources = document.createElement("p");
+                sources.className = "provenance-sources";
+                sources.textContent = "Supporting sources: ";
+                (group.sources || []).forEach((source, sourceIndex) => {
+                    const link = document.createElement("a");
+                    link.textContent = source.url
+                        ? (source.title || `Source ${sourceIndex + 1}`)
+                        : "Original source unavailable";
+                    if (source.url) {
+                        link.href = source.url;
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                    }
+                    sources.append(link);
+                    if (sourceIndex < group.sources.length - 1) sources.append(" · ");
+                });
+
+                section.append(heading, note, sources);
                 groupsList.append(section);
             });
         };
@@ -103,14 +120,16 @@
                 sourceNote.textContent = `${entry.article_ids.length} supporting article${entry.article_ids.length === 1 ? "" : "s"}`;
                 const sources = document.createElement("p");
                 sources.className = "timeline-sources";
-                entry.supporting_articles.forEach((article, index) => {
+                const supportingSources = entry.supporting_sources || entry.supporting_articles || [];
+                sources.textContent = "Supporting sources: ";
+                supportingSources.forEach((article, index) => {
                     const link = document.createElement("a");
                     link.href = article.url;
                     link.target = "_blank";
                     link.rel = "noopener noreferrer";
                     link.textContent = `Source ${index + 1}`;
                     sources.append(link);
-                    if (index < entry.supporting_articles.length - 1) {
+                    if (index < supportingSources.length - 1) {
                         sources.append(" · ");
                     }
                 });
@@ -124,7 +143,29 @@
             if (!summaryContent) {
                 return;
             }
-            summaryContent.textContent = summary?.summary || "Summary temporarily unavailable.";
+            summaryContent.replaceChildren();
+            if (!summary?.summary) {
+                summaryContent.textContent = "Summary temporarily unavailable.";
+                return;
+            }
+            summaryContent.textContent = summary.summary;
+            const sources = document.createElement("p");
+            sources.className = "provenance-sources";
+            sources.textContent = "Supporting sources: ";
+            (summary.sources || []).forEach((source, index) => {
+                const link = document.createElement("a");
+                    link.textContent = source.url
+                        ? (source.title || `Source ${index + 1}`)
+                        : "Original source unavailable";
+                    if (source.url) {
+                        link.href = source.url;
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                    }
+                sources.append(link);
+                if (index < summary.sources.length - 1) sources.append(" · ");
+            });
+            summaryContent.append(sources);
         };
 
         const createArticleCard = (article) => {
@@ -133,7 +174,7 @@
 
             const source = document.createElement("p");
             source.className = "article-source";
-            source.textContent = `${article.publisher || "Unknown source"} · External source`;
+            source.textContent = `${article.publisher || "Publisher unavailable"} · Source provider: ${article.source_provider || "Unavailable"}`;
 
             const title = document.createElement("h3");
             const link = document.createElement("a");
@@ -147,7 +188,22 @@
             date.className = "article-date";
             date.textContent = article.publication_date || "Publication date unavailable";
 
-            card.append(source, title, date);
+            const originalSource = document.createElement("a");
+            originalSource.className = "original-source";
+            originalSource.textContent = article.url ? "Original source" : "Original source unavailable";
+            if (article.url) {
+                originalSource.href = article.url;
+                originalSource.target = "_blank";
+                originalSource.rel = "noopener noreferrer";
+            }
+
+            const retrieved = document.createElement("p");
+            retrieved.className = "article-retrieved";
+            retrieved.textContent = article.retrieved_at
+                ? `Retrieved by News History: ${article.retrieved_at}`
+                : "Retrieval time unavailable";
+
+            card.append(source, title, date, originalSource, retrieved);
             return card;
         };
 
@@ -245,7 +301,7 @@
                 });
                 const data = await response.json();
                 questionStatus.textContent = data.success
-                    ? `${data.answer} Supporting articles: ${data.supporting_article_ids.join(", ") || "none"}.`
+                    ? `${data.answer} Supporting sources: ${(data.sources || []).map((source) => source.title).join(", ") || "none"}.`
                     : data.error;
             } catch (error) {
                 questionStatus.textContent = "Answer temporarily unavailable.";
