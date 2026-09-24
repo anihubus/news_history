@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 10, AI summaries and grounded RAG foundation, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, and a mock-first grounded AI layer.
+Step 11, source verification and provenance, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, a mock-first grounded AI layer, and explicit source traceability.
 
 ## Setup
 
@@ -102,6 +102,14 @@ The Search Orchestrator passes normalized articles, groups, and timeline entries
 Summaries are automatically generated from the available News History source data and may be incomplete. They must not invent facts, dates, causes, quotes, or information outside the supplied metadata and descriptions. AI failures do not remove articles, groups, relationships, or timeline results.
 
 The context builder creates the foundation for future grounded question answering from retrieved articles, groups, and timeline entries. `POST /api/question` accepts `question` and `query` and returns a mock grounded answer with supporting article IDs. It does not perform web browsing, vector search, or arbitrary internet access.
+
+## Source provenance
+
+`ProvenanceService` builds neutral source references from existing article records. Each reference preserves the article ID, publisher, original URL, publication date, retrieval timestamp, and metadata provider. `publication_date` is when the source reports publication; `retrieved_at` is when News History obtained the metadata. Missing values remain missing.
+
+Groups and timelines expose supporting source references, while summaries and grounded answers expose the sources behind their generated content. The UI distinguishes `SOURCE DATA`, `AUTOMATIC GROUPING`, `AUTOMATIC TIMELINE`, and `AI-GENERATED CONTENT`. Automatic groups and timelines are interpretations, not independently verified events. Conflicting reports remain separate rather than being resolved automatically.
+
+News History provides source traceability and provenance. It does not independently verify every claim made by external publishers. It does not assign reliability, credibility, bias, or fact-checking scores.
 
 ## SQLite database
 
