@@ -68,12 +68,20 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.json["success"], True)
         self.assertEqual(response.json["query"], "climate change")
         self.assertEqual(response.json["message"], None)
-        self.assertEqual(response.json["results"][0], article.to_dict())
+        self.assertEqual(response.json["results"][0]["title"], article.title)
+        self.assertEqual(response.json["results"][0]["publisher"], article.publisher)
+        self.assertEqual(response.json["results"][0]["publication_date"], article.publication_date)
+        self.assertEqual(response.json["results"][0]["source_provider"], article.source_provider)
+        self.assertIn("retrieved_at", response.json["results"][0])
+        self.assertEqual(response.json["results"][0]["url"], article.url)
         self.assertIn("groups", response.json)
         self.assertEqual(response.json["groups"][0]["article_count"], 1)
+        self.assertIn("sources", response.json["groups"][0])
         self.assertIn("timeline", response.json)
         self.assertEqual(len(response.json["timeline"]), 1)
+        self.assertIn("supporting_sources", response.json["timeline"][0])
         self.assertIsNotNone(response.json["summary"])
+        self.assertIn("sources", response.json["summary"])
         self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
 
     def test_api_keeps_core_results_when_summary_fails(self):
@@ -120,6 +128,7 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json["success"])
         self.assertEqual(response.json["supporting_article_ids"], [1])
+        self.assertEqual(response.json["sources"][0]["url"], article.url)
 
     def test_search_with_empty_query_returns_client_error(self):
         self.set_provider(StubProvider())
