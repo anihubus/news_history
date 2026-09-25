@@ -1,5 +1,7 @@
 import unittest
+import os
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from app import create_app
 from app.models.article import Article
@@ -47,6 +49,18 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"News History", response.data)
+
+    def test_debug_is_disabled_by_default_and_configurable(self):
+        self.assertFalse(self.app.config["DEBUG"])
+        with patch.dict(os.environ, {"FLASK_DEBUG": "1"}):
+            debug_app = create_app(
+                {
+                    "TESTING": True,
+                    "NEWS_PROVIDER": "mock",
+                    "DATABASE_PATH": f"{self.database_directory.name}/debug.db",
+                }
+            )
+        self.assertTrue(debug_app.config["DEBUG"])
 
     def test_search_with_valid_query_returns_success(self):
         article = Article(

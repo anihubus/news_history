@@ -29,6 +29,7 @@ def create_app(test_config=None):
         SEARCH_RESULT_LIMIT=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
         RELATED_ARTICLE_THRESHOLD=float(os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")),
         AI_PROVIDER=os.getenv("AI_PROVIDER", "mock").lower(),
+        DEBUG=os.getenv("FLASK_DEBUG", "0").lower() in {"1", "true", "yes", "on"},
     )
     if test_config:
         app.config.update(test_config)

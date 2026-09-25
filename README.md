@@ -4,7 +4,31 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Step 11, source verification and provenance, is complete. The project provides a Flask application factory, a responsive News History interface, a GDELT-backed search pipeline, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, a mock-first grounded AI layer, and explicit source traceability.
+Steps 1-11 are complete. Step 12 final testing and deployment readiness is in progress. The project provides a Flask application factory, a responsive News History interface, a replaceable news provider, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, mock-first grounded AI services, and explicit source traceability.
+
+## Features
+
+- Search GDELT coverage or use the deterministic mock provider.
+- Store normalized article metadata in SQLite.
+- Deduplicate articles by canonical URL.
+- Combine stored and newly retrieved articles.
+- Detect related articles with explainable weighted keyword overlap.
+- Assemble a chronological timeline from publication dates.
+- Generate grounded mock summaries and question answers from available metadata.
+- Display publishers, providers, publication dates, retrieval timestamps, original URLs, and supporting sources.
+
+## Architecture
+
+```text
+Frontend
+	-> Flask route
+	-> Search Orchestrator
+	-> Retrieval / Grouping / Timeline / Provenance / Summary services
+	-> News provider and ArticleRepository
+	-> SQLite
+```
+
+Flask routes handle HTTP only. Provider adapters handle external services, repositories handle persistence, services handle application logic, and the frontend handles presentation. AI services receive explicit retrieved context and cannot browse the web or access SQLite directly.
 
 ## Setup
 
@@ -39,6 +63,8 @@ python run.py
 ```
 
 Then open `http://127.0.0.1:5000/` in a browser.
+
+For local development, `NEWS_PROVIDER=mock` avoids external network calls. Debug mode is disabled by default. Enable it only locally with `FLASK_DEBUG=1`.
 
 ### Choose a news provider
 
@@ -124,8 +150,37 @@ python run.py
 
 The database uses Python's built-in `sqlite3` module; no manual SQL commands or additional database packages are required.
 
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEWS_PROVIDER` | `gdelt` | Selects `gdelt` or `mock`. |
+| `GDELT_BASE_URL` | GDELT DOC endpoint | Provider endpoint. |
+| `GDELT_MAX_RESULTS` | `10` | Maximum provider results per request. |
+| `GDELT_TIMEOUT` | `10` | Provider request timeout in seconds. |
+| `DATABASE_PATH` | `instance/news_history.db` | SQLite database location. |
+| `SEARCH_RESULT_LIMIT` | `20` | Final search result limit. |
+| `RELATED_ARTICLE_THRESHOLD` | `0.30` | Deterministic grouping threshold. |
+| `AI_PROVIDER` | `mock` | Current AI provider selection; mock is the supported implementation. |
+| `FLASK_DEBUG` | `0` | Enables Flask debug mode only when explicitly set. |
+
+Keep secrets and machine-specific configuration in `.env`. Do not expose them to frontend JavaScript or commit them to source control.
+
 ## Run tests
 
 ```text
-python -m pytest
+python -m pytest -v
 ```
+
+## Deployment notes
+
+The included `run.py` uses Flask's development server and is intended for local smoke testing only. For deployment, run the application factory with a production WSGI server supplied by the deployment environment, set `FLASK_DEBUG=0`, provide environment variables securely, and use a writable persistent `DATABASE_PATH`. Review provider quotas, source terms, content retention, backups, and concurrency requirements before production use.
+
+## Known limitations
+
+- GDELT coverage is not a complete historical archive and may be rate-limited.
+- SQLite is intended for the initial single-application deployment.
+- Grouping and timelines are deterministic automatic interpretations, not verified events or causal histories.
+- Mock AI summaries and answers are development implementations; no real AI provider is configured.
+- Summaries use metadata and descriptions only and may be incomplete.
+- News History provides source traceability but does not independently verify publisher claims.
