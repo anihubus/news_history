@@ -1,19 +1,64 @@
 (() => {
+    // Utility to format raw provider timestamps (e.g. 20260918090000 or 20260918 or ISO)
+    const formatTimestamp = (raw) => {
+        if (!raw) return "Publication date unavailable";
+        const str = String(raw).trim();
+        if (/^\d{14}$/.test(str)) {
+            const year = str.slice(0, 4);
+            const month = str.slice(4, 6);
+            const day = str.slice(6, 8);
+            const hour = str.slice(8, 10);
+            const min = str.slice(10, 12);
+            return `${year}-${month}-${day} ${hour}:${min} UTC`;
+        }
+        if (/^\d{8}$/.test(str)) {
+            const year = str.slice(0, 4);
+            const month = str.slice(4, 6);
+            const day = str.slice(6, 8);
+            return `${year}-${month}-${day}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str)) {
+            const datePart = str.slice(0, 10);
+            const timePart = str.slice(11, 16);
+            return `${datePart} ${timePart} UTC`;
+        }
+        return str;
+    };
+
+    // Live UTC Clock
+    const initLiveClock = () => {
+        const clockEl = document.querySelector("#live-clock");
+        if (!clockEl) return;
+        const update = () => {
+            const now = new Date();
+            const utc = now.toUTCString().split(" ")[4];
+            clockEl.textContent = utc ? `${utc} UTC` : now.toISOString().slice(11, 19) + " UTC";
+        };
+        update();
+        setInterval(update, 1000);
+    };
+
     const initializeSearch = () => {
         const searchForm = document.querySelector("#search-form");
         const searchInput = document.querySelector("#topic-search");
         const searchButton = searchForm?.querySelector("button[type='submit']");
         const searchStatus = document.querySelector("#search-status");
-        const resultsCount = document.querySelector(".results-count");
+        const searchStatusDot = document.querySelector("#search-status-dot");
+        const progressBar = document.querySelector("#system-progress");
+        const clearBtn = document.querySelector("#clear-search-btn");
+        const resultsCountAll = document.querySelectorAll(".results-count");
         const emptyState = document.querySelector(".results-empty");
         const resultsList = document.querySelector("#results-list");
         const groupsList = document.querySelector("#groups-list");
         const timelineList = document.querySelector("#timeline-list");
         const timelineEmpty = document.querySelector("#timeline-empty");
+        const timelineEmptyCard = document.querySelector("#timeline-empty-card");
         const summaryContent = document.querySelector("#summary-content");
         const questionForm = document.querySelector("#question-form");
         const questionInput = document.querySelector("#question-input");
         const questionStatus = document.querySelector("#question-status");
+        const btnSpinner = searchButton?.querySelector(".btn-spinner");
+
         let activeQuery = "";
         let requestInProgress = false;
         const rateLimitMessage = "The news provider is temporarily rate-limited. Please wait a few seconds and try again.";
@@ -22,6 +67,83 @@
         if (!searchForm || !searchInput || !searchStatus || !resultsList) {
             return;
         }
+
+        initLiveClock();
+
+        // View Tabs switching
+        const viewTabs = document.querySelectorAll(".view-tabs .tab-btn");
+        const timelineContainer = document.querySelector("#timeline-view-container");
+        const sourcesContainer = document.querySelector("#sources-view-container");
+
+        viewTabs.forEach((tab) => {
+            tab.addEventListener("click", () => {
+                viewTabs.forEach((t) => {
+                    t.classList.remove("is-active");
+                    t.setAttribute("aria-selected", "false");
+                });
+                tab.classList.add("is-active");
+                tab.setAttribute("aria-selected", "true");
+
+                const view = tab.dataset.view;
+                if (view === "all") {
+                    timelineContainer?.classList.remove("is-hidden");
+                    sourcesContainer?.classList.remove("is-hidden");
+                } else if (view === "timeline") {
+                    timelineContainer?.classList.remove("is-hidden");
+                    sourcesContainer?.classList.add("is-hidden");
+                } else if (view === "sources") {
+                    timelineContainer?.classList.add("is-hidden");
+                    sourcesContainer?.classList.remove("is-hidden");
+                }
+            });
+        });
+
+        // Clear button handling
+        const updateClearBtn = () => {
+            if (clearBtn) {
+                clearBtn.classList.toggle("is-hidden", !searchInput.value);
+            }
+        };
+        searchInput.addEventListener("input", updateClearBtn);
+        clearBtn?.addEventListener("click", () => {
+            searchInput.value = "";
+            updateClearBtn();
+            searchInput.focus();
+        });
+
+        // Quick topic preset buttons
+        document.querySelectorAll(".preset-chip").forEach((chip) => {
+            chip.addEventListener("click", () => {
+                const query = chip.dataset.query;
+                if (!query) return;
+                searchInput.value = query;
+                updateClearBtn();
+                if (typeof searchForm.requestSubmit === "function") {
+                    searchForm.requestSubmit();
+                } else {
+                    searchButton?.click();
+                }
+            });
+        });
+
+        // Keyboard Shortcut: Cmd+K or / to focus search
+        window.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            } else if (e.key === "/" && document.activeElement !== searchInput && document.activeElement !== questionInput) {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
+
+        const updateResultsCount = (text) => {
+            resultsCountAll.forEach((el) => {
+                el.textContent = text;
+            });
+        };
 
         const showEmptyState = (heading, message, count = "No results yet") => {
             emptyState?.classList.remove("is-hidden");
@@ -34,9 +156,7 @@
             if (emptyMessage) {
                 emptyMessage.textContent = message;
             }
-            if (resultsCount) {
-                resultsCount.textContent = count;
-            }
+            updateResultsCount(count);
         };
 
         const clearResults = () => {
@@ -50,6 +170,9 @@
                 timelineEmpty.textContent = "Timeline entries will appear after a search.";
                 timelineEmpty.classList.remove("is-hidden");
             }
+            if (timelineEmptyCard) {
+                timelineEmptyCard.classList.remove("is-hidden");
+            }
             emptyState?.classList.add("is-hidden");
         };
 
@@ -58,16 +181,29 @@
                 return;
             }
             groupsList.replaceChildren();
-            groups.filter((group) => group.article_count > 1).forEach((group, index) => {
+
+            const multiArticleGroups = groups.filter((group) => group.article_count > 1);
+            if (multiArticleGroups.length === 0) {
+                const emptyWrap = document.createElement("div");
+                emptyWrap.className = "groups-empty-placeholder";
+                const emptyText = document.createElement("p");
+                emptyText.className = "subtle-text";
+                emptyText.textContent = "No multi-article clusters detected for this topic.";
+                emptyWrap.append(emptyText);
+                groupsList.append(emptyWrap);
+                return;
+            }
+
+            multiArticleGroups.forEach((group, index) => {
                 const section = document.createElement("section");
                 section.className = "article-group";
 
                 const heading = document.createElement("h3");
-                heading.textContent = `Related group ${index + 1}: ${group.representative_title}`;
+                heading.textContent = `Cluster ${index + 1}: ${group.representative_title}`;
 
                 const note = document.createElement("p");
                 note.className = "group-note";
-                note.textContent = "AUTOMATIC GROUPING: Automatically grouped based on article similarity.";
+                note.textContent = `THEMATIC CLUSTER: ${group.article_count} articles grouped on content similarity`;
 
                 const sources = document.createElement("p");
                 sources.className = "provenance-sources";
@@ -83,7 +219,6 @@
                         link.rel = "noopener noreferrer";
                     }
                     sources.append(link);
-                    if (sourceIndex < group.sources.length - 1) sources.append(" · ");
                 });
 
                 section.append(heading, note, sources);
@@ -96,8 +231,13 @@
                 return;
             }
             timelineList.replaceChildren();
-            timelineEmpty.classList.toggle("is-hidden", timeline.length > 0);
-            if (timeline.length === 0) {
+            const hasEntries = timeline.length > 0;
+            timelineEmpty.classList.toggle("is-hidden", hasEntries);
+            if (timelineEmptyCard) {
+                timelineEmptyCard.classList.toggle("is-hidden", hasEntries);
+            }
+
+            if (!hasEntries) {
                 timelineEmpty.textContent = "No timeline entries could be assembled from these results.";
                 return;
             }
@@ -107,8 +247,8 @@
                 item.className = "timeline-entry";
 
                 const date = document.createElement("time");
-                date.className = "timeline-date";
-                date.textContent = entry.date || "Date unavailable";
+                date.className = "timeline-date font-mono";
+                date.textContent = formatTimestamp(entry.date);
 
                 const content = document.createElement("div");
                 const title = document.createElement("h3");
@@ -127,11 +267,8 @@
                     link.href = article.url;
                     link.target = "_blank";
                     link.rel = "noopener noreferrer";
-                    link.textContent = `Source ${index + 1}`;
+                    link.textContent = article.publisher || `Source ${index + 1}`;
                     sources.append(link);
-                    if (index < supportingSources.length - 1) {
-                        sources.append(" · ");
-                    }
                 });
                 content.append(title, description, sourceNote, sources);
                 item.append(date, content);
@@ -154,16 +291,15 @@
             sources.textContent = "Supporting sources: ";
             (summary.sources || []).forEach((source, index) => {
                 const link = document.createElement("a");
-                    link.textContent = source.url
-                        ? (source.title || `Source ${index + 1}`)
-                        : "Original source unavailable";
-                    if (source.url) {
-                        link.href = source.url;
-                        link.target = "_blank";
-                        link.rel = "noopener noreferrer";
-                    }
+                link.textContent = source.url
+                    ? (source.publisher || source.title || `Source ${index + 1}`)
+                    : "Original source unavailable";
+                if (source.url) {
+                    link.href = source.url;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                }
                 sources.append(link);
-                if (index < summary.sources.length - 1) sources.append(" · ");
             });
             summaryContent.append(sources);
         };
@@ -186,11 +322,11 @@
 
             const date = document.createElement("p");
             date.className = "article-date";
-            date.textContent = article.publication_date || "Publication date unavailable";
+            date.textContent = formatTimestamp(article.publication_date);
 
             const originalSource = document.createElement("a");
             originalSource.className = "original-source";
-            originalSource.textContent = article.url ? "Original source" : "Original source unavailable";
+            originalSource.textContent = article.url ? "Original source ↗" : "Original source unavailable";
             if (article.url) {
                 originalSource.href = article.url;
                 originalSource.target = "_blank";
@@ -200,7 +336,7 @@
             const retrieved = document.createElement("p");
             retrieved.className = "article-retrieved";
             retrieved.textContent = article.retrieved_at
-                ? `Retrieved by News History: ${article.retrieved_at}`
+                ? `Retrieved by News History: ${formatTimestamp(article.retrieved_at)}`
                 : "Retrieval time unavailable";
 
             card.append(source, title, date, originalSource, retrieved);
@@ -210,8 +346,24 @@
         const renderResults = (articles) => {
             clearResults();
             articles.forEach((article) => resultsList.append(createArticleCard(article)));
-            if (resultsCount) {
-                resultsCount.textContent = `${articles.length} results`;
+            updateResultsCount(`${articles.length} article${articles.length === 1 ? "" : "s"} indexed`);
+        };
+
+        const setLoadingState = (isLoading) => {
+            if (isLoading) {
+                searchButton?.setAttribute("disabled", "disabled");
+                btnSpinner?.classList.remove("is-hidden");
+                progressBar?.classList.add("is-active");
+                if (searchStatusDot) {
+                    searchStatusDot.className = "status-indicator-dot dot-searching";
+                }
+            } else {
+                searchButton?.removeAttribute("disabled");
+                btnSpinner?.classList.add("is-hidden");
+                progressBar?.classList.remove("is-active");
+                if (searchStatusDot) {
+                    searchStatusDot.className = "status-indicator-dot dot-idle";
+                }
             }
         };
 
@@ -231,10 +383,14 @@
 
             requestInProgress = true;
             activeQuery = query;
-            searchStatus.textContent = "Searching...";
-            searchButton?.setAttribute("disabled", "disabled");
+            searchStatus.textContent = "Searching index and reconstructing chronology...";
+            setLoadingState(true);
 
             try {
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set("topic", query);
+                window.history.replaceState({}, "", currentUrl);
+
                 const response = await fetch("/api/search", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -260,6 +416,7 @@
                     renderTimeline([]);
                     renderSummary(null);
                     searchStatus.textContent = "No articles were returned by the provider.";
+                    if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-idle";
                 } else {
                     renderResults(data.results);
                     renderGroups(data.groups || []);
@@ -269,7 +426,8 @@
                         ? `${data.results.length} stored articles found. The provider is temporarily rate-limited.`
                         : data.provider_status === "provider_unavailable"
                             ? `${data.results.length} stored articles found. The provider is temporarily unavailable.`
-                            : `${data.results.length} articles found.`;
+                            : `${data.results.length} articles indexed and aligned to chronological timeline.`;
+                    if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-online";
                 }
             } catch (error) {
                 showEmptyState("Search unavailable", "Try again when the news provider is available.");
@@ -279,9 +437,10 @@
                 searchStatus.textContent = error.message === rateLimitMessage
                     ? rateLimitMessage
                     : providerErrorMessage;
+                if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-error";
             } finally {
                 requestInProgress = false;
-                searchButton?.removeAttribute("disabled");
+                setLoadingState(false);
             }
         });
 
@@ -292,7 +451,10 @@
                 questionStatus.textContent = "Search for a topic before asking a question.";
                 return;
             }
-            questionStatus.textContent = "Preparing an answer from the available sources...";
+            questionStatus.textContent = "Synthesizing answer from verified sources...";
+            const questionBtn = questionForm.querySelector("button[type='submit']");
+            questionBtn?.setAttribute("disabled", "disabled");
+
             try {
                 const response = await fetch("/api/question", {
                     method: "POST",
@@ -301,12 +463,27 @@
                 });
                 const data = await response.json();
                 questionStatus.textContent = data.success
-                    ? `${data.answer} Supporting sources: ${(data.sources || []).map((source) => source.title).join(", ") || "none"}.`
-                    : data.error;
+                    ? `${data.answer} [Supporting sources: ${(data.sources || []).map((source) => source.title).join(", ") || "none"}]`
+                    : (data.error || "Query could not be answered.");
             } catch (error) {
                 questionStatus.textContent = "Answer temporarily unavailable.";
+            } finally {
+                questionBtn?.removeAttribute("disabled");
             }
         });
+
+        // Hydrate from URL query param if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialQuery = urlParams.get("topic");
+        if (initialQuery && !searchInput.value) {
+            searchInput.value = initialQuery;
+            updateClearBtn();
+            if (typeof searchForm.requestSubmit === "function") {
+                searchForm.requestSubmit();
+            } else {
+                searchButton?.click();
+            }
+        }
     };
 
     if (document.readyState === "loading") {
