@@ -223,3 +223,91 @@ class VerificationSignalService:
             item["warning_signals"] = signals
             enriched.append(item)
         return enriched
+
+    def build_dashboard(self, articles, groups=None, timeline=None):
+        """Construct a structured verification dashboard combining source data, cross-source evidence, and warning signals."""
+        articles = list(articles or [])
+        groups = list(groups or [])
+        timeline = list(timeline or [])
+
+        warnings = self.analyze_articles(articles)
+        publishers = sorted(list({
+            str(self._extract(a, "publisher")).strip()
+            for a in articles
+            if self._extract(a, "publisher") and str(self._extract(a, "publisher")).strip()
+        }))
+        independent_source_count = len(publishers)
+        total_sources = len(articles)
+
+        # Conflicting article IDs
+        conflicting_ids = set()
+        for sig in warnings:
+            if sig.get("type") == "conflicting_reports":
+                conflicting_ids.update(sig.get("supporting_article_ids", []))
+
+        # Check keyword conflicts directly as well
+        for a in articles:
+            text = ((self._extract(a, "title") or "") + " " + (self._extract(a, "description") or "")).lower()
+            words = set(text.split())
+            if any(kw in words for kw in self.CONFLICT_KEYWORDS):
+                aid = self._extract(a, "article_id")
+                if aid is not None:
+                    conflicting_ids.add(aid)
+
+        supporting_ids = [
+            self._extract(a, "article_id")
+            for a in articles
+            if self._extract(a, "article_id") not in conflicting_ids and self._extract(a, "article_id") is not None
+        ]
+
+        # Neutral summary statement
+        if total_sources == 0:
+            summary_statement = "No reporting available to evaluate."
+        elif len(conflicting_ids) > 0:
+            summary_statement = "Reports contain differing information."
+        elif independent_source_count > 1:
+            summary_statement = "Reported by multiple sources."
+        elif independent_source_count == 1 and total_sources > 1:
+            summary_statement = "Limited independent reporting available (single publisher)."
+        else:
+            summary_statement = "Limited independent reporting available."
+
+        # Source items formatted for dashboard
+        source_items = []
+        for a in articles:
+            aid = self._extract(a, "article_id")
+            art_warnings = self.analyze_article(a)
+            is_conflicting = aid in conflicting_ids
+            is_supporting = aid in supporting_ids
+
+            reporting_status = "Conflicting report" if is_conflicting else ("Supporting report" if is_supporting and independent_source_count > 1 else "Single source report")
+
+            source_items.append({
+                "article_id": aid,
+                "title": self._extract(a, "title"),
+                "original_url": self._extract(a, "url"),
+                "publisher": self._extract(a, "publisher") or "Publisher not identified",
+                "publication_date": self._extract(a, "publication_date") or "Date unavailable",
+                "source_provider": self._extract(a, "source_provider") or "Unknown provider",
+                "independent_source_count": independent_source_count,
+                "is_supporting": is_supporting,
+                "is_conflicting": is_conflicting,
+                "reporting_status": reporting_status,
+                "verification_warnings": art_warnings,
+                "has_warnings": len(art_warnings) > 0,
+            })
+
+        return {
+            "summary_statement": summary_statement,
+            "independent_source_count": independent_source_count,
+            "total_sources": total_sources,
+            "publishers": publishers,
+            "multiple_sources_found": independent_source_count > 1,
+            "has_conflicting_reports": len(conflicting_ids) > 0,
+            "conflicting_reports_count": len(conflicting_ids),
+            "supporting_reports_count": len(supporting_ids),
+            "warnings": warnings,
+            "has_warnings": len(warnings) > 0,
+            "sources": source_items,
+            "disclaimer": "These indicators represent observable verification signals based on retrieved metadata and reporting patterns, not definitive fact-checking verdicts or credibility scores.",
+        }

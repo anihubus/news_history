@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–18 are complete (including Phase 2 Step 18: Evidence-Based AI Verification). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, and evidence-based AI verification explaining reporting evidence and verification signals.
+Steps 1–19 are complete (including Phase 2 Step 19: Verification Dashboard and Final Integration). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
 
 ## Features
 
@@ -17,6 +17,7 @@ Steps 1–18 are complete (including Phase 2 Step 18: Evidence-Based AI Verifica
 - Expose source-quality and provenance signals without subjective credibility rankings.
 - Identify suspicious-content warning signals based on observable metadata and corroboration patterns without truth/fake value judgments.
 - Grounded AI verification explaining source evidence, corroboration, conflicts, and verification warnings.
+- Verification & Sources dashboard combining source metadata, corroboration metrics, conflict tracking, and warning explanations.
 - Assemble a chronological timeline from publication dates.
 - Generate grounded mock summaries and question answers from available metadata.
 - Display publishers, providers, publication dates, retrieval timestamps, original URLs, and supporting sources.
@@ -263,6 +264,31 @@ Users can ask direct verification and evidence inquiries:
 - **Explicit insufficiency reporting**: If available sources do not provide sufficient information, the AI explicitly states that evidence is insufficient.
 - **No truth/fake value judgments**: The AI never claims an article is definitely fake or definitely true unless the supplied evidence explicitly establishes that fact.
 - **Zero invented data**: The AI never invents publishers, URLs, dates, people, or events.
+
+## Verification dashboard and sources
+
+The research workspace features a dedicated **Verification & Sources** dashboard combining source metadata, corroboration analysis, conflict signals, and warning explanations in a transparent user interface.
+
+### Displayed verification information
+
+For every research query, the dashboard shows:
+1. **Original source**: Preserved direct links to original article URLs.
+2. **Publisher**: Distinct publisher identification or transparent missing-publisher notice.
+3. **Publication date**: Historical publication date or explicit date-unavailable notice.
+4. **Source provider**: Identified metadata adapter (GDELT, NewsAPI, Mock, etc.).
+5. **Number of independent sources**: Aggregated count of distinct, independent publishers covering the topic.
+6. **Supporting reports**: Explicit status indicating corroboration across multiple independent publishers (*"Reported by multiple sources"*).
+7. **Conflicting reports**: Transparent indicators when reporting contains disputes or contradictory statements (*"Reports contain differing information"*).
+8. **Verification warnings**: Active warning indicators for coverage gaps (e.g. single-source reporting, incomplete metadata).
+9. **Explanation of why a warning exists**: Clear, neutral editorial explanations detailing observable gaps (e.g. *"Publisher information is missing from the source record."*, *"Limited independent reporting available."*).
+
+### Strict neutrality and non-judgmental guardrails
+
+- **NO fake/real verdicts**: The system never labels articles as "fake" or "real", nor does it render truth judgments.
+- **NO credibility scores**: Never computes or displays arbitrary trust scores or percentages.
+- **NO publisher rankings**: Never ranks news outlets as trustworthy or untrustworthy.
+- **NO political bias scores**: Does not infer, score, or display political alignment.
+- **Clear disclaimer**: The dashboard explicitly reminds users that indicators represent observable verification signals based on retrieved metadata and reporting patterns, not definitive fact-checking verdicts.
 
 ## SQLite database
 

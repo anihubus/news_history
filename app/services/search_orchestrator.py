@@ -74,6 +74,10 @@ class SearchOrchestrator:
         )
         topic_warnings = self.verification_service.analyze_articles(retrieval.articles)
 
+        dashboard = self.verification_service.build_dashboard(
+            retrieval.articles, enriched_groups, enriched_timeline
+        )
+
         if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
                 "success": False,
@@ -88,6 +92,7 @@ class SearchOrchestrator:
                 "provenance_signals": overall_signals,
                 "verification_signals": [],
                 "warning_signals": [],
+                "verification_dashboard": dashboard,
                 "error": retrieval.provider_error,
             }
 
@@ -113,6 +118,7 @@ class SearchOrchestrator:
             "provenance_signals": overall_signals,
             "verification_signals": topic_warnings,
             "warning_signals": topic_warnings,
+            "verification_dashboard": dashboard,
         }
         if retrieval.provider_error:
             result["message"] = retrieval.provider_error

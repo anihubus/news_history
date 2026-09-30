@@ -83,6 +83,11 @@
         const qaWarningsWrap = document.querySelector("#qa-warnings-wrap");
         const qaSourcesChips = document.querySelector("#qa-sources-chips");
 
+        const verificationSourcesSection = document.querySelector("#verification-sources-section");
+        const verificationMetricsStrip = document.querySelector("#verification-metrics-strip");
+        const verificationAlertsBlock = document.querySelector("#verification-alerts-block");
+        const verificationRecordsList = document.querySelector("#verification-records-list");
+
         const summarySection = document.querySelector("#summary-section");
         const summaryText = document.querySelector("#summary-text");
         const summarySourcesChips = document.querySelector("#summary-sources-chips");
@@ -96,6 +101,7 @@
                 landingView?.classList.remove("is-hidden");
                 loadingView?.classList.add("is-hidden");
                 resultsView?.classList.add("is-hidden");
+                verificationSourcesSection?.classList.add("is-hidden");
 
                 siteHeader?.classList.remove("has-border");
                 headerSearchWrap?.classList.add("is-hidden");
@@ -108,6 +114,7 @@
                 landingView?.classList.add("is-hidden");
                 loadingView?.classList.remove("is-hidden");
                 resultsView?.classList.add("is-hidden");
+                verificationSourcesSection?.classList.add("is-hidden");
 
                 siteHeader?.classList.remove("has-border");
                 headerSearchWrap?.classList.add("is-hidden");
@@ -128,6 +135,7 @@
         // Render Empty or Error State in Results View
         const showResultErrorState = (title, message) => {
             timelineWrapper?.classList.add("is-hidden");
+            verificationSourcesSection?.classList.add("is-hidden");
             qaSection?.classList.add("is-hidden");
             summarySection?.classList.add("is-hidden");
 
@@ -711,6 +719,195 @@
             return div.innerHTML;
         };
 
+        // Render Verification Dashboard & Sources Section (Step 19)
+        const renderVerificationDashboard = (dashboard, allArticles = [], provSignals = null, warnings = []) => {
+            if (!verificationSourcesSection) return;
+
+            const articles = (dashboard && dashboard.sources && dashboard.sources.length > 0) ? dashboard.sources : allArticles;
+            if (!articles || articles.length === 0) {
+                verificationSourcesSection.classList.add("is-hidden");
+                return;
+            }
+
+            verificationSourcesSection.classList.remove("is-hidden");
+
+            // 1. Render Metrics Strip
+            if (verificationMetricsStrip) {
+                verificationMetricsStrip.replaceChildren();
+
+                const indepCount = dashboard?.independent_source_count ?? provSignals?.independent_source_count ?? 1;
+                const totalSources = dashboard?.total_sources ?? articles.length;
+                const multipleFound = dashboard?.multiple_sources_found ?? provSignals?.multiple_sources_found ?? (indepCount > 1);
+                const hasConflicts = dashboard?.has_conflicting_reports ?? false;
+                const activeWarnings = dashboard?.warnings || warnings || [];
+
+                const metrics = [
+                    {
+                        label: "Independent Sources",
+                        val: `${indepCount} publisher${indepCount === 1 ? "" : "s"}`,
+                        sub: `from ${totalSources} total report${totalSources === 1 ? "" : "s"}`
+                    },
+                    {
+                        label: "Corroboration",
+                        val: multipleFound ? "Reported by multiple sources" : "Limited independent reporting",
+                        sub: multipleFound ? "Corroborated across publishers" : "Single or limited source"
+                    },
+                    {
+                        label: "Cross-Source Evidence",
+                        val: hasConflicts ? "Reports contain differing information" : "Consistent reporting",
+                        sub: hasConflicts ? "Disputes or conflicting statements" : "Corroborating coverage"
+                    },
+                    {
+                        label: "Verification Warnings",
+                        val: activeWarnings.length > 0 ? `${activeWarnings.length} warning signal${activeWarnings.length === 1 ? "" : "s"}` : "No warning signals",
+                        sub: activeWarnings.length > 0 ? "Observable metadata or coverage gaps" : "All observable signals clear"
+                    }
+                ];
+
+                metrics.forEach((m) => {
+                    const card = document.createElement("div");
+                    card.className = "verification-metric-card";
+
+                    const lbl = document.createElement("span");
+                    lbl.className = "verification-metric-label";
+                    lbl.textContent = m.label;
+
+                    const val = document.createElement("span");
+                    val.className = "verification-metric-val";
+                    val.textContent = m.val;
+
+                    const sub = document.createElement("span");
+                    sub.className = "verification-metric-sub";
+                    sub.textContent = m.sub;
+
+                    card.append(lbl, val, sub);
+                    verificationMetricsStrip.appendChild(card);
+                });
+            }
+
+            // 2. Render Overall Warning Alert Box
+            if (verificationAlertsBlock) {
+                verificationAlertsBlock.replaceChildren();
+                const activeWarnings = dashboard?.warnings || warnings || [];
+                if (activeWarnings.length > 0) {
+                    const warnEl = createVerificationWarningsElement(activeWarnings);
+                    if (warnEl) {
+                        verificationAlertsBlock.appendChild(warnEl);
+                        verificationAlertsBlock.classList.remove("is-hidden");
+                    }
+                } else {
+                    verificationAlertsBlock.classList.add("is-hidden");
+                }
+            }
+
+            // 3. Render Source Records
+            if (verificationRecordsList) {
+                verificationRecordsList.replaceChildren();
+
+                articles.forEach((item) => {
+                    const card = document.createElement("div");
+                    card.className = "verification-record-item";
+
+                    // Top row: Title and status badges
+                    const topRow = document.createElement("div");
+                    topRow.className = "verification-record-top";
+
+                    const title = document.createElement("h4");
+                    title.className = "verification-record-title";
+                    title.textContent = item.title || "Untitled reporting record";
+
+                    const badgesWrap = document.createElement("div");
+                    badgesWrap.className = "verification-record-badges";
+
+                    // Supporting / Conflicting / Single status badge
+                    const statusBadge = document.createElement("span");
+                    if (item.is_conflicting) {
+                        statusBadge.className = "status-badge status-badge-conflicting";
+                        statusBadge.textContent = "Differing report";
+                    } else if (item.is_supporting && (dashboard?.independent_source_count > 1 || provSignals?.multiple_sources_found)) {
+                        statusBadge.className = "status-badge status-badge-supporting";
+                        statusBadge.textContent = "Supporting report";
+                    } else {
+                        statusBadge.className = "status-badge status-badge-single";
+                        statusBadge.textContent = "Single source";
+                    }
+                    badgesWrap.appendChild(statusBadge);
+
+                    const itemWarnings = item.verification_warnings || item.warning_signals || [];
+                    if (itemWarnings.length > 0) {
+                        const warnBadge = document.createElement("span");
+                        warnBadge.className = "status-badge status-badge-warning";
+                        warnBadge.textContent = `⚠ ${itemWarnings.length} observation${itemWarnings.length === 1 ? "" : "s"}`;
+                        badgesWrap.appendChild(warnBadge);
+                    }
+
+                    topRow.append(title, badgesWrap);
+
+                    // Meta row: Publisher, Date, Provider, Independent Sources, Original Source
+                    const metaRow = document.createElement("div");
+                    metaRow.className = "verification-record-meta";
+
+                    // 1. Publisher
+                    const pubItem = document.createElement("span");
+                    pubItem.className = "verification-record-meta-item";
+                    const isPubMissing = !item.publisher || item.publisher === "Publisher not identified";
+                    pubItem.innerHTML = `<span class="verification-record-meta-label">Publisher:</span> <span class="verification-record-meta-val ${isPubMissing ? 'is-missing' : ''}">${escapeHtml(item.publisher || "Publisher not identified")}</span>`;
+
+                    // 2. Publication Date
+                    const dateItem = document.createElement("span");
+                    dateItem.className = "verification-record-meta-item";
+                    const isDateMissing = !item.publication_date || item.publication_date === "Date unavailable";
+                    dateItem.innerHTML = `<span class="verification-record-meta-label">Date:</span> <span class="verification-record-meta-val ${isDateMissing ? 'is-missing' : ''}">${escapeHtml(item.publication_date || "Date unavailable")}</span>`;
+
+                    // 3. Source Provider
+                    const provItem = document.createElement("span");
+                    provItem.className = "verification-record-meta-item";
+                    provItem.innerHTML = `<span class="verification-record-meta-label">Provider:</span> <span class="verification-record-meta-val">${escapeHtml(item.source_provider || "provider")}</span>`;
+
+                    // 4. Number of Independent Sources
+                    const indepItem = document.createElement("span");
+                    indepItem.className = "verification-record-meta-item";
+                    const indepNum = item.independent_source_count || dashboard?.independent_source_count || 1;
+                    indepItem.innerHTML = `<span class="verification-record-meta-label">Independent sources:</span> <span class="verification-record-meta-val">${indepNum}</span>`;
+
+                    // 5. Original Source Link
+                    const urlItem = document.createElement("span");
+                    urlItem.className = "verification-record-meta-item";
+                    const rawUrl = item.original_url || item.url;
+                    if (rawUrl) {
+                        const link = document.createElement("a");
+                        link.href = rawUrl;
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                        link.className = "verification-record-url-link";
+                        link.innerHTML = `Original source <span aria-hidden="true">↗</span>`;
+                        urlItem.appendChild(link);
+                    } else {
+                        urlItem.innerHTML = `<span class="verification-record-meta-label">URL:</span> <span class="verification-record-meta-val is-missing">Original URL unavailable</span>`;
+                    }
+
+                    metaRow.append(pubItem, dateItem, provItem, indepItem, urlItem);
+
+                    card.append(topRow, metaRow);
+
+                    // Warnings & Explanations of why warnings exist
+                    if (itemWarnings.length > 0) {
+                        const warnBox = document.createElement("div");
+                        warnBox.className = "verification-record-warnings";
+                        itemWarnings.forEach((w) => {
+                            const line = document.createElement("div");
+                            line.className = "verification-record-warning-line";
+                            line.innerHTML = `<span class="verification-record-warning-dot" aria-hidden="true">•</span> <span class="verification-record-warning-text">${escapeHtml(w.explanation)}</span>`;
+                            warnBox.appendChild(line);
+                        });
+                        card.appendChild(warnBox);
+                    }
+
+                    verificationRecordsList.appendChild(card);
+                });
+            }
+        };
+
         // Primary Search Execution Function
         const performSearch = async (query) => {
             const trimmed = (query || "").trim();
@@ -788,8 +985,14 @@
                     return;
                 }
 
-                // Render Timeline, Cross-Source Signals, Legacy Clusters, and Summary
+                // Render Timeline, Verification Dashboard, Cross-Source Signals, Legacy Clusters, and Summary
                 renderTimeline(data.timeline || [], data.results || [], data.groups || []);
+                renderVerificationDashboard(
+                    data.verification_dashboard,
+                    data.results || [],
+                    data.provenance_signals,
+                    data.verification_signals || data.warning_signals
+                );
                 renderLegacyGroups(data.groups || []);
                 renderSummary(data.summary);
                 qaSection?.classList.remove("is-hidden");
