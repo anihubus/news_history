@@ -5,6 +5,7 @@ from app.services.context_builder import ContextBuilder
 from app.services.summary_service import SummaryService
 from app.services.question_answer_service import QuestionAnswerService
 from app.services.provenance_service import ProvenanceService
+from app.services.cross_source_service import CrossSourceService
 
 
 class SearchOrchestrator:
@@ -27,6 +28,7 @@ class SearchOrchestrator:
         self.summary_service = SummaryService(ai_provider) if ai_provider else None
         self.question_answer_service = QuestionAnswerService(ai_provider) if ai_provider else None
         self.provenance_service = ProvenanceService()
+        self.cross_source_service = CrossSourceService()
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -38,6 +40,9 @@ class SearchOrchestrator:
         normalized_query = query.strip()
         retrieval = self.retrieval_service.search(normalized_query)
         grouping = self.grouping_service.group_articles(retrieval.articles)
+        grouping["groups"] = self.cross_source_service.analyze_groups(
+            grouping["groups"], retrieval.articles
+        )
         timeline = self.timeline_service.generate(
             retrieval.articles,
             grouping["groups"],

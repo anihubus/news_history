@@ -205,8 +205,38 @@
                 note.className = "group-note";
                 note.textContent = `THEMATIC CLUSTER: ${group.article_count} articles grouped on content similarity`;
 
+                const signalsSection = document.createElement("div");
+                if (group.cross_source_signals && group.cross_source_signals.length > 0) {
+                    signalsSection.className = "cross-source-signals";
+                    const signalTitle = document.createElement("p");
+                    signalTitle.className = "eyebrow";
+                    signalTitle.style.marginTop = "10px";
+                    signalTitle.textContent = "Cross-source signals";
+                    signalsSection.append(signalTitle);
+
+                    const signalsList = document.createElement("ul");
+                    signalsList.style.listStyleType = "none";
+                    signalsList.style.paddingLeft = "0";
+                    signalsList.style.marginTop = "4px";
+
+                    group.cross_source_signals.forEach(sig => {
+                        const li = document.createElement("li");
+                        li.style.fontSize = "0.85rem";
+                        if (sig.signal === "supporting_reports") li.textContent = "✓ Reported by multiple sources";
+                        else if (sig.signal === "conflicting_reports") li.textContent = "⚠ Reports contain differing information";
+                        else if (sig.signal === "insufficient_cross_source_evidence") li.textContent = "⚠ Limited independent reporting available";
+                        else if (sig.signal === "same_story") li.textContent = "ℹ Multiple outlets syndicating same story";
+                        
+                        if (li.textContent) signalsList.append(li);
+                    });
+                    if (signalsList.childNodes.length > 0) {
+                        signalsSection.append(signalsList);
+                    }
+                }
+
                 const sources = document.createElement("p");
                 sources.className = "provenance-sources";
+                sources.style.marginTop = "10px";
                 sources.textContent = "Supporting sources: ";
                 (group.sources || []).forEach((source, sourceIndex) => {
                     const link = document.createElement("a");
@@ -221,7 +251,7 @@
                     sources.append(link);
                 });
 
-                section.append(heading, note, sources);
+                section.append(heading, note, signalsSection, sources);
                 groupsList.append(section);
             });
         };
