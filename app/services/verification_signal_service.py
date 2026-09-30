@@ -200,35 +200,64 @@ class VerificationSignalService:
 
     def enrich_groups(self, groups, articles):
         """Enrich groups with verification and warning signals."""
+        from app.services.cross_source_service import CrossSourceService
+
         articles_by_id = {self._extract(a, "article_id"): a for a in articles}
+        cross_source = CrossSourceService()
         enriched = []
         for group in groups:
             item = dict(group)
             group_articles = [articles_by_id[aid] for aid in group.get("article_ids", []) if aid in articles_by_id]
             signals = self.analyze_articles(group_articles)
+            verification = cross_source.verify_related_articles(group_articles)
             item["verification_signals"] = signals
             item["warning_signals"] = signals
+            item["cross_source_verification"] = verification
+            item["independent_source_count"] = verification["independent_source_count"]
+            item["supporting_reports"] = verification["supporting_reports"]
+            item["conflicting_reports"] = verification["conflicting_reports"]
+            item["source_metadata_completeness"] = verification["source_metadata_completeness"]
+            item["time_of_first_report"] = verification["time_of_first_report"]
+            item["time_of_latest_report"] = verification["time_of_latest_report"]
+            item["cross_source_signals"] = verification["signals"]
             enriched.append(item)
         return enriched
 
     def enrich_timeline(self, timeline, articles):
         """Enrich timeline entries with verification and warning signals."""
+        from app.services.cross_source_service import CrossSourceService
+
         articles_by_id = {self._extract(a, "article_id"): a for a in articles}
+        cross_source = CrossSourceService()
         enriched = []
         for entry in timeline:
             item = dict(entry)
             entry_articles = [articles_by_id[aid] for aid in entry.get("article_ids", []) if aid in articles_by_id]
             signals = self.analyze_articles(entry_articles)
+            verification = cross_source.verify_related_articles(entry_articles)
             item["verification_signals"] = signals
             item["warning_signals"] = signals
+            item["cross_source_verification"] = verification
+            item["independent_source_count"] = verification["independent_source_count"]
+            item["supporting_reports"] = verification["supporting_reports"]
+            item["conflicting_reports"] = verification["conflicting_reports"]
+            item["source_metadata_completeness"] = verification["source_metadata_completeness"]
+            item["time_of_first_report"] = verification["time_of_first_report"]
+            item["time_of_latest_report"] = verification["time_of_latest_report"]
+            item["cross_source_signals"] = verification["signals"]
             enriched.append(item)
         return enriched
 
     def build_dashboard(self, articles, groups=None, timeline=None):
         """Construct a structured verification dashboard combining source data, cross-source evidence, and warning signals."""
+        from app.services.cross_source_service import CrossSourceService
+
         articles = list(articles or [])
         groups = list(groups or [])
         timeline = list(timeline or [])
+
+        cross_source = CrossSourceService()
+        cross_verification = cross_source.verify_related_articles(articles)
 
         warnings = self.analyze_articles(articles)
         publishers = sorted(list({
@@ -306,6 +335,13 @@ class VerificationSignalService:
             "has_conflicting_reports": len(conflicting_ids) > 0,
             "conflicting_reports_count": len(conflicting_ids),
             "supporting_reports_count": len(supporting_ids),
+            "supporting_reports": supporting_ids,
+            "conflicting_reports": sorted(list(conflicting_ids)),
+            "source_metadata_completeness": cross_verification["source_metadata_completeness"],
+            "time_of_first_report": cross_verification["time_of_first_report"],
+            "time_of_latest_report": cross_verification["time_of_latest_report"],
+            "neutral_signals": cross_verification["signals"],
+            "cross_source_verification": cross_verification,
             "warnings": warnings,
             "has_warnings": len(warnings) > 0,
             "sources": source_items,

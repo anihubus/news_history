@@ -405,7 +405,7 @@
 
             const signalTitle = document.createElement("p");
             signalTitle.className = "cross-source-title";
-            signalTitle.textContent = "Cross-source signals";
+            signalTitle.textContent = "Cross-source verification signals";
             signalsSection.append(signalTitle);
 
             const signalsList = document.createElement("ul");
@@ -419,22 +419,32 @@
                 let iconClass = "";
                 let labelText = "";
 
-                if (sig.signal === "supporting_reports") {
+                const signalName = sig.signal || sig.type;
+
+                if (signalName === "supporting_reports") {
                     iconText = "✓";
                     iconClass = "cross-source-icon-success";
-                    labelText = "Reported by multiple sources";
-                } else if (sig.signal === "conflicting_reports") {
+                    labelText = sig.statement || sig.explanation || "Reported by multiple sources.";
+                } else if (signalName === "conflicting_reports") {
                     iconText = "⚠";
                     iconClass = "cross-source-icon-warning";
-                    labelText = "Reports contain differing information";
-                } else if (sig.signal === "insufficient_cross_source_evidence") {
+                    labelText = sig.statement || sig.explanation || "Reports contain differing information.";
+                } else if (signalName === "insufficient_cross_source_evidence") {
                     iconText = "⚠";
                     iconClass = "cross-source-icon-warning";
-                    labelText = "Limited independent reporting available";
-                } else if (sig.signal === "same_story") {
+                    labelText = sig.statement || sig.explanation || "Limited independent reporting available.";
+                } else if (signalName === "incomplete_metadata") {
+                    iconText = "⚠";
+                    iconClass = "cross-source-icon-warning";
+                    labelText = sig.statement || sig.explanation || "Source metadata is incomplete.";
+                } else if (signalName === "same_story") {
                     iconText = "ℹ";
                     iconClass = "cross-source-icon-info";
-                    labelText = "Multiple outlets syndicating same story";
+                    labelText = sig.statement || sig.explanation || "Multiple outlets syndicating same story.";
+                } else if (sig.statement || sig.explanation) {
+                    iconText = "ℹ";
+                    iconClass = "cross-source-icon-info";
+                    labelText = sig.statement || sig.explanation;
                 }
 
                 if (labelText) {
@@ -447,6 +457,15 @@
                     textSpan.textContent = labelText;
 
                     li.append(iconSpan, textSpan);
+
+                    const ids = sig.supporting_article_ids || [];
+                    if (ids && ids.length > 0) {
+                        const refsSpan = document.createElement("span");
+                        refsSpan.className = "cross-source-refs";
+                        refsSpan.textContent = `(Sources: #${ids.join(", #")})`;
+                        li.append(refsSpan);
+                    }
+
                     signalsList.append(li);
                 }
             });
@@ -929,6 +948,55 @@
 
                 const signalsSection = createCrossSourceSignalsElement(group.cross_source_signals);
 
+                // Step 23: Cross-source verification metrics strip
+                let metaStrip = null;
+                const verification = group.cross_source_verification;
+                if (verification) {
+                    metaStrip = document.createElement("div");
+                    metaStrip.className = "cross-source-meta-strip";
+
+                    const indepBadge = document.createElement("span");
+                    indepBadge.className = "cross-source-badge";
+                    indepBadge.textContent = `${verification.independent_source_count} independent source${verification.independent_source_count === 1 ? "" : "s"}`;
+                    metaStrip.append(indepBadge);
+
+                    const suppBadge = document.createElement("span");
+                    suppBadge.className = "cross-source-badge";
+                    const suppCount = Array.isArray(verification.supporting_reports) ? verification.supporting_reports.length : (verification.supporting_reports || 0);
+                    suppBadge.textContent = `${suppCount} supporting report${suppCount === 1 ? "" : "s"}`;
+                    metaStrip.append(suppBadge);
+
+                    const confCount = Array.isArray(verification.conflicting_reports) ? verification.conflicting_reports.length : (verification.conflicting_reports || 0);
+                    if (confCount > 0) {
+                        const confBadge = document.createElement("span");
+                        confBadge.className = "cross-source-badge is-warning";
+                        confBadge.textContent = `${confCount} conflicting report${confCount === 1 ? "" : "s"}`;
+                        metaStrip.append(confBadge);
+                    }
+
+                    if (verification.source_metadata_completeness) {
+                        const compBadge = document.createElement("span");
+                        const isComp = verification.source_metadata_completeness.is_complete;
+                        compBadge.className = `cross-source-badge ${isComp ? "is-success" : "is-warning"}`;
+                        compBadge.textContent = isComp ? "Complete metadata" : "Incomplete metadata";
+                        metaStrip.append(compBadge);
+                    }
+
+                    if (verification.time_of_first_report) {
+                        const firstBadge = document.createElement("span");
+                        firstBadge.className = "cross-source-badge is-time";
+                        firstBadge.textContent = `First report: ${formatDisplayDate(verification.time_of_first_report)}`;
+                        metaStrip.append(firstBadge);
+                    }
+
+                    if (verification.time_of_latest_report) {
+                        const latestBadge = document.createElement("span");
+                        latestBadge.className = "cross-source-badge is-time";
+                        latestBadge.textContent = `Latest report: ${formatDisplayDate(verification.time_of_latest_report)}`;
+                        metaStrip.append(latestBadge);
+                    }
+                }
+
                 const sources = document.createElement("p");
                 sources.className = "provenance-sources";
                 sources.style.marginTop = "10px";
@@ -950,6 +1018,7 @@
                 const warnSignalsSection = createVerificationWarningsElement(group.verification_signals || group.warning_signals);
 
                 section.append(heading, note);
+                if (metaStrip) section.append(metaStrip);
                 if (signalsSection) section.append(signalsSection);
                 if (provSignalsSection) section.append(provSignalsSection);
                 if (warnSignalsSection) section.append(warnSignalsSection);
