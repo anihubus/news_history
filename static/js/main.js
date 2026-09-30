@@ -1,7 +1,7 @@
 /**
  * News History — Minimal Editorial Frontend
  * Handles landing, serene loading, chronological timeline tree, article expansion,
- * grounded Q&A, and provenance tracking.
+ * grounded Q&A, provenance tracking, and cross-source verification signals.
  */
 (() => {
     "use strict";
@@ -72,6 +72,7 @@
 
         const timelineWrapper = document.querySelector("#timeline-wrapper");
         const timelineTree = document.querySelector("#timeline-tree");
+        const groupsList = document.querySelector("#groups-list");
 
         const qaSection = document.querySelector("#qa-section");
         const questionForm = document.querySelector("#question-form");
@@ -140,8 +141,70 @@
             }
         };
 
-        // Render Timeline with Chronological Year Markers and Expandable Developments
-        const renderTimeline = (timelineData, allArticles) => {
+        // Helper to construct cross-source signals element
+        const createCrossSourceSignalsElement = (signals) => {
+            if (!signals || signals.length === 0) return null;
+
+            const signalsSection = document.createElement("div");
+            signalsSection.className = "cross-source-signals";
+
+            const signalTitle = document.createElement("p");
+            signalTitle.className = "cross-source-title";
+            signalTitle.textContent = "Cross-source signals";
+            signalsSection.append(signalTitle);
+
+            const signalsList = document.createElement("ul");
+            signalsList.className = "cross-source-list";
+
+            signals.forEach((sig) => {
+                const li = document.createElement("li");
+                li.className = "cross-source-item";
+
+                let iconText = "";
+                let iconClass = "";
+                let labelText = "";
+
+                if (sig.signal === "supporting_reports") {
+                    iconText = "✓";
+                    iconClass = "cross-source-icon-success";
+                    labelText = "Reported by multiple sources";
+                } else if (sig.signal === "conflicting_reports") {
+                    iconText = "⚠";
+                    iconClass = "cross-source-icon-warning";
+                    labelText = "Reports contain differing information";
+                } else if (sig.signal === "insufficient_cross_source_evidence") {
+                    iconText = "⚠";
+                    iconClass = "cross-source-icon-warning";
+                    labelText = "Limited independent reporting available";
+                } else if (sig.signal === "same_story") {
+                    iconText = "ℹ";
+                    iconClass = "cross-source-icon-info";
+                    labelText = "Multiple outlets syndicating same story";
+                }
+
+                if (labelText) {
+                    const iconSpan = document.createElement("span");
+                    iconSpan.className = `cross-source-icon ${iconClass}`;
+                    iconSpan.setAttribute("aria-hidden", "true");
+                    iconSpan.textContent = iconText;
+
+                    const textSpan = document.createElement("span");
+                    textSpan.textContent = labelText;
+
+                    li.append(iconSpan, textSpan);
+                    signalsList.append(li);
+                }
+            });
+
+            if (signalsList.children.length > 0) {
+                signalsSection.append(signalsList);
+                return signalsSection;
+            }
+            return null;
+        };
+
+        // Render Timeline with Chronological Year Markers, Cross-Source Signals, and Expandable Developments
+        const renderTimeline = (timelineData, allArticles, groupsData = []) => {
             if (!timelineTree) return;
             timelineTree.replaceChildren();
 
@@ -161,6 +224,14 @@
             (allArticles || []).forEach((art) => {
                 if (art.article_id !== undefined && art.article_id !== null) {
                     articlesById[art.article_id] = art;
+                }
+            });
+
+            // Build group lookup map for cross-source signals and group metadata
+            const groupsById = {};
+            (groupsData || []).forEach((grp) => {
+                if (grp.group_id !== undefined && grp.group_id !== null) {
+                    groupsById[String(grp.group_id)] = grp;
                 }
             });
 
@@ -227,6 +298,11 @@
                     const descEl = document.createElement("p");
                     descEl.className = "timeline-node-desc";
                     descEl.textContent = entry.description || "Reported event assembled from news coverage.";
+
+                    // Cross-source signals (from main branch functionality)
+                    const associatedGroup = entry.group_id ? groupsById[String(entry.group_id)] : null;
+                    const signals = associatedGroup?.cross_source_signals || entry.cross_source_signals || [];
+                    const signalsElement = createCrossSourceSignalsElement(signals);
 
                     // Card Footer / Disclosure Controls
                     const footerRow = document.createElement("div");
@@ -346,7 +422,12 @@
                         }
                     });
 
-                    card.append(topRow, titleEl, descEl, footerRow, drawer);
+                    card.append(topRow, titleEl, descEl);
+                    if (signalsElement) {
+                        card.append(signalsElement);
+                    }
+                    card.append(footerRow, drawer);
+
                     node.append(pin, card);
                     eventsContainer.appendChild(node);
                 });
@@ -388,6 +469,60 @@
                 noChip.textContent = "Verified timeline reporting";
                 summarySourcesChips.appendChild(noChip);
             }
+        };
+
+        // Backward-compatible renderGroups helper (if #groups-list exists)
+        const renderLegacyGroups = (groups) => {
+            if (!groupsList) return;
+            groupsList.replaceChildren();
+
+            const multiArticleGroups = (groups || []).filter((group) => group.article_count > 1);
+            if (multiArticleGroups.length === 0) {
+                const emptyWrap = document.createElement("div");
+                emptyWrap.className = "groups-empty-placeholder";
+                const emptyText = document.createElement("p");
+                emptyText.className = "subtle-text";
+                emptyText.textContent = "No multi-article clusters detected for this topic.";
+                emptyWrap.append(emptyText);
+                groupsList.append(emptyWrap);
+                return;
+            }
+
+            multiArticleGroups.forEach((group, index) => {
+                const section = document.createElement("section");
+                section.className = "article-group";
+
+                const heading = document.createElement("h3");
+                heading.textContent = `Cluster ${index + 1}: ${group.representative_title}`;
+
+                const note = document.createElement("p");
+                note.className = "group-note";
+                note.textContent = `THEMATIC CLUSTER: ${group.article_count} articles grouped on content similarity`;
+
+                const signalsSection = createCrossSourceSignalsElement(group.cross_source_signals);
+
+                const sources = document.createElement("p");
+                sources.className = "provenance-sources";
+                sources.style.marginTop = "10px";
+                sources.textContent = "Supporting sources: ";
+                (group.sources || []).forEach((source, sourceIndex) => {
+                    const link = document.createElement("a");
+                    link.textContent = source.url
+                        ? (source.title || `Source ${sourceIndex + 1}`)
+                        : "Original source unavailable";
+                    if (source.url) {
+                        link.href = source.url;
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                    }
+                    sources.append(link);
+                });
+
+                section.append(heading, note);
+                if (signalsSection) section.append(signalsSection);
+                section.append(sources);
+                groupsList.append(section);
+            });
         };
 
         // Escape HTML helper
@@ -470,8 +605,9 @@
                     return;
                 }
 
-                // Render Timeline and Summary
-                renderTimeline(data.timeline || [], data.results || []);
+                // Render Timeline, Cross-Source Signals, Legacy Clusters, and Summary
+                renderTimeline(data.timeline || [], data.results || [], data.groups || []);
+                renderLegacyGroups(data.groups || []);
                 renderSummary(data.summary);
                 qaSection?.classList.remove("is-hidden");
 
