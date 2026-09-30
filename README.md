@@ -4,10 +4,19 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–23 are complete (including Step 23: Real-Time Cross-Source Verification). The project provides a Flask application factory, a responsive News History interface, multi-provider adapter architecture with live GDELT and NewsAPI integrations, SQLite persistence, real-time news retrieval on every search, cross-provider canonical URL deduplication and provider merging, real-time cross-source verification comparing fresh reports from different sources without credibility scores or 'fake'/'true' labels, automatic frontend polling with configurable refresh intervals, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
+Steps 1–24 are complete (including Step 24: Real-Time Timeline Updates). The project provides a Flask application factory, a responsive News History interface, multi-provider adapter architecture with live GDELT and NewsAPI integrations, SQLite persistence, real-time news retrieval on every search, cross-provider canonical URL deduplication and provider merging, real-time cross-source verification comparing fresh reports from different sources without credibility scores or 'fake'/'true' labels, real-time incremental timeline updates that automatically incorporate newly retrieved articles into historical chronology without recreating the timeline unnecessarily, subtle 'Updated' indicators, automatic frontend polling with configurable refresh intervals, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
 
 ## Features
 
+- Real-time chronological timeline updates (`TimelineService.update_timeline`) automatically incorporating newly retrieved articles:
+  - Normalize incoming article publication dates into ISO `YYYY-MM-DD` timestamps.
+  - Insert new articles into their exact chronological positions (oldest to newest).
+  - Update related article groups in-place with new member IDs, earliest dates, and supporting source references.
+  - Strict guardrail: never use `retrieved_at` as the historical event date.
+  - Preserve articles with missing publication dates separately at the end of the timeline (`date=None`).
+  - Do not recreate the entire timeline unnecessarily (preserve unchanged entries in-place).
+  - Show a subtle "Updated" indicator badge on affected timeline cards when new timeline information arrives.
+  - Preserve and update all existing provenance and cross-source verification metadata.
 - Search live GDELT coverage, NewsAPI, or use the deterministic mock provider via the extensible `NewsProvider` adapter architecture.
 - Multi-provider support (`MultiProvider`) combining results across independent providers with isolated failure and rate limit handling.
 - Environment-variable-based credential management (`NEWSAPI_KEY`, etc.) without hardcoded secrets.

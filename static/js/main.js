@@ -101,6 +101,7 @@
         const newArticlesBanner = document.querySelector("#new-articles-banner");
         const newArticlesText = document.querySelector("#new-articles-text");
         const newArticlesDismissBtn = document.querySelector("#new-articles-dismiss-btn");
+        const timelineHeaderBadge = document.querySelector("#timeline-header-updated-badge");
 
         let currentQuery = "";
         let isSearching = false;
@@ -277,9 +278,24 @@
                     }
 
                     const combinedArticles = [...newlyFoundArticles, ...(latestResultsData?.results || [])];
+                    const incomingTimeline = data.timeline || latestResultsData?.timeline || [];
+                    const newIds = new Set(newlyFoundArticles.map(a => a.article_id).filter(id => id !== undefined && id !== null));
+                    const newUrls = new Set(newlyFoundArticles.map(a => a.url ? canonicalizeUrl(a.url) : "").filter(Boolean));
+                    incomingTimeline.forEach(entry => {
+                        const hasNewId = (entry.article_ids || []).some(id => newIds.has(id));
+                        const hasNewUrl = (entry.supporting_articles || []).concat(entry.supporting_sources || []).some(s => s.url && newUrls.has(canonicalizeUrl(s.url)));
+                        if (hasNewId || hasNewUrl) {
+                            entry.updated = true;
+                        }
+                    });
+
+                    if (timelineHeaderBadge && incomingTimeline.some(e => e.updated || e.is_new)) {
+                        timelineHeaderBadge.classList.remove("is-hidden");
+                    }
+
                     latestResultsData = {
                         results: combinedArticles,
-                        timeline: data.timeline || latestResultsData?.timeline || [],
+                        timeline: incomingTimeline,
                         groups: data.groups || latestResultsData?.groups || [],
                         summary: data.summary || latestResultsData?.summary,
                         provenance_signals: data.provenance_signals || latestResultsData?.provenance_signals,
@@ -342,6 +358,7 @@
                 stopPolling();
                 currentQuery = "";
                 newArticlesBanner?.classList.add("is-hidden");
+                timelineHeaderBadge?.classList.add("is-hidden");
                 landingView?.classList.remove("is-hidden");
                 loadingView?.classList.add("is-hidden");
                 resultsView?.classList.add("is-hidden");
@@ -357,6 +374,7 @@
             } else if (state === "loading") {
                 stopPolling();
                 newArticlesBanner?.classList.add("is-hidden");
+                timelineHeaderBadge?.classList.add("is-hidden");
                 landingView?.classList.add("is-hidden");
                 loadingView?.classList.remove("is-hidden");
                 resultsView?.classList.add("is-hidden");
@@ -678,6 +696,14 @@
                         : "Direct Source";
 
                     topRow.append(dateEl, provTag);
+
+                    // Step 24: Show a subtle "Updated" indicator when new timeline information arrives
+                    if (entry.updated || entry.is_new) {
+                        const updatedBadge = document.createElement("span");
+                        updatedBadge.className = "timeline-updated-badge";
+                        updatedBadge.textContent = "Updated";
+                        topRow.append(updatedBadge);
+                    }
 
                     // Event Title
                     const titleEl = document.createElement("h3");

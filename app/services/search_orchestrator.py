@@ -32,7 +32,7 @@ class SearchOrchestrator:
         self.cross_source_service = CrossSourceService()
         self.verification_service = VerificationSignalService()
 
-    def search(self, query):
+    def search(self, query, existing_timeline=None):
         if not isinstance(query, str) or not query.strip():
             return {
                 "success": False,
@@ -45,10 +45,18 @@ class SearchOrchestrator:
         grouping["groups"] = self.cross_source_service.analyze_groups(
             grouping["groups"], retrieval.articles
         )
-        timeline = self.timeline_service.generate(
-            retrieval.articles,
-            grouping["groups"],
-        )
+        if existing_timeline:
+            timeline = self.timeline_service.update_timeline(
+                existing_timeline=existing_timeline,
+                new_articles=retrieval.articles,
+                groups=grouping["groups"],
+                all_articles=retrieval.articles,
+            )
+        else:
+            timeline = self.timeline_service.generate(
+                retrieval.articles,
+                grouping["groups"],
+            )
         summaries = self.summary_service.generate(
             normalized_query,
             retrieval.articles,
@@ -132,6 +140,14 @@ class SearchOrchestrator:
     @staticmethod
     def _group_summaries(summaries):
         return [summary for summary in summaries if summary["summary_type"] == "group"]
+
+    def update_timeline(self, existing_timeline, new_articles, groups=None, all_articles=None):
+        return self.timeline_service.update_timeline(
+            existing_timeline=existing_timeline,
+            new_articles=new_articles,
+            groups=groups,
+            all_articles=all_articles,
+        )
 
     def answer_question(self, question, query):
         normalized_query = (query or "").strip()

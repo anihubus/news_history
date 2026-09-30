@@ -18,7 +18,10 @@ def search():
     if not isinstance(payload, dict):
         return jsonify({"success": False, "error": "Request body must be a JSON object."}), 400
 
-    result = current_app.extensions["search_orchestrator"].search(payload.get("query"))
+    result = current_app.extensions["search_orchestrator"].search(
+        payload.get("query"),
+        existing_timeline=payload.get("existing_timeline"),
+    )
     if not result["success"]:
         status_code = {
             "rate_limited": 429,
