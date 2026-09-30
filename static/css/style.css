@@ -827,6 +827,98 @@ input {
     color: #2563eb;
 }
 
+/* Source Quality & Provenance Signals (Step 16) */
+.provenance-signals-block {
+    margin: 8px 0 10px 0;
+    padding: 8px 12px;
+    background-color: var(--color-bg-subtle, #f8fafc);
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 6px;
+}
+
+.provenance-signals-header {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted, #475569);
+    margin-bottom: 6px;
+}
+
+.provenance-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.prov-signal-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    line-height: 1.4;
+}
+
+.prov-pill-success {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.prov-pill-neutral {
+    background-color: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+}
+
+.prov-pill-subtle-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.prov-pill-icon {
+    font-size: 11px;
+    line-height: 1;
+}
+
+.provenance-tag.provider-tag {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.provenance-tag.quality-complete-tag {
+    background-color: #ecfdf5;
+    color: #047857;
+}
+
+.provenance-tag.quality-missing-tag {
+    background-color: #fffbeb;
+    color: #b45309;
+}
+
+.article-publisher.is-missing {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+time.is-missing {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.url-missing-notice {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: normal;
+    font-style: italic;
+    margin-left: 4px;
+}
+
 /* Expandable Articles Drawer (Light, Clean, Compact) */
 .timeline-articles-drawer {
     margin-top: 10px;

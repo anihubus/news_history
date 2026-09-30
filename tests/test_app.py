@@ -95,8 +95,36 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(len(response.json["timeline"]), 1)
         self.assertIn("supporting_sources", response.json["timeline"][0])
         self.assertIsNotNone(response.json["summary"])
-        self.assertIn("sources", response.json["summary"])
+        self.assertIn("provenance_signals", response.json)
+        self.assertEqual(response.json["provenance_signals"]["independent_source_count"], 1)
+        self.assertTrue(response.json["results"][0]["publisher_identified"])
+        self.assertTrue(response.json["results"][0]["original_url_available"])
+        self.assertTrue(response.json["results"][0]["publication_date_available"])
+        self.assertTrue(response.json["results"][0]["source_provider_identified"])
+        self.assertFalse(response.json["results"][0]["source_information_missing"])
+        self.assertIn("provenance_signals", response.json["timeline"][0])
         self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
+
+    def test_search_with_incomplete_source_metadata_exposes_signals(self):
+        article = Article(
+            title="Incomplete source report",
+            url="",
+            publisher=None,
+            publication_date=None,
+            description="Lacks metadata",
+            source_provider="mock",
+        )
+        self.set_provider(StubProvider([article]))
+
+        response = self.client.post("/api/search", json={"query": "incomplete"})
+        self.assertEqual(response.status_code, 200)
+        res = response.json["results"][0]
+        self.assertFalse(res["publisher_identified"])
+        self.assertFalse(res["original_url_available"])
+        self.assertFalse(res["publication_date_available"])
+        self.assertTrue(res["source_provider_identified"])
+        self.assertTrue(res["source_information_missing"])
+        self.assertTrue(response.json["provenance_signals"]["source_information_missing"])
 
     def test_api_keeps_core_results_when_summary_fails(self):
         article = Article(

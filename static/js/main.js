@@ -203,6 +203,83 @@
             return null;
         };
 
+        // Helper to construct source quality and provenance signals element (Step 16)
+        const createProvenanceSignalsElement = (signals) => {
+            if (!signals) return null;
+
+            const container = document.createElement("div");
+            container.className = "provenance-signals-block";
+
+            const label = document.createElement("span");
+            label.className = "provenance-signals-header";
+            label.textContent = "Source Provenance";
+            container.appendChild(label);
+
+            const pills = document.createElement("div");
+            pills.className = "provenance-pills-row";
+
+            // Independent source count & publisher identification
+            const indepCount = signals.independent_source_count || 0;
+            const pubPill = document.createElement("span");
+            if (indepCount > 1) {
+                pubPill.className = "prov-signal-pill prov-pill-success";
+                pubPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">✓</span> ${indepCount} independent publishers`;
+            } else if (indepCount === 1) {
+                pubPill.className = "prov-signal-pill prov-pill-neutral";
+                pubPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">ℹ</span> 1 publisher identified`;
+            } else {
+                pubPill.className = "prov-signal-pill prov-pill-subtle-warning";
+                pubPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">⚠</span> Publisher unidentified`;
+            }
+            pills.appendChild(pubPill);
+
+            // Multi-source signal if multiple articles from same publisher
+            if (signals.multiple_sources_found && indepCount <= 1) {
+                const multiPill = document.createElement("span");
+                multiPill.className = "prov-signal-pill prov-pill-neutral";
+                multiPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">ℹ</span> Multiple reports (same publisher)`;
+                pills.appendChild(multiPill);
+            }
+
+            // Original URL availability
+            if (signals.original_url_available) {
+                const urlPill = document.createElement("span");
+                urlPill.className = "prov-signal-pill prov-pill-neutral";
+                urlPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">↗</span> Original URL available`;
+                pills.appendChild(urlPill);
+            }
+
+            // Publication date availability
+            if (signals.publication_date_available) {
+                const datePill = document.createElement("span");
+                datePill.className = "prov-signal-pill prov-pill-neutral";
+                datePill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">📅</span> Publication date available`;
+                pills.appendChild(datePill);
+            }
+
+            // Source Provider identified
+            if (signals.source_provider_identified) {
+                const provPill = document.createElement("span");
+                provPill.className = "prov-signal-pill prov-pill-neutral";
+                provPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">✓</span> Provider identified`;
+                pills.appendChild(provPill);
+            }
+
+            // Source information completeness signal
+            const infoPill = document.createElement("span");
+            if (signals.source_information_missing) {
+                infoPill.className = "prov-signal-pill prov-pill-subtle-warning";
+                infoPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">⚠</span> Source information missing`;
+            } else {
+                infoPill.className = "prov-signal-pill prov-pill-success";
+                infoPill.innerHTML = `<span class="prov-pill-icon" aria-hidden="true">✓</span> Full metadata present`;
+            }
+            pills.appendChild(infoPill);
+
+            container.appendChild(pills);
+            return container;
+        };
+
         // Render Timeline with Chronological Year Markers, Cross-Source Signals, and Expandable Developments
         const renderTimeline = (timelineData, allArticles, groupsData = []) => {
             if (!timelineTree) return;
@@ -367,12 +444,21 @@
                             const metaDiv = document.createElement("div");
                             metaDiv.className = "supporting-article-meta";
 
+                            const pubIdentified = art.publisher_identified !== undefined
+                                ? art.publisher_identified
+                                : Boolean(art.publisher && String(art.publisher).trim());
+
                             const pubSpan = document.createElement("span");
-                            pubSpan.className = "article-publisher";
-                            pubSpan.textContent = art.publisher || "Publisher";
+                            pubSpan.className = "article-publisher" + (pubIdentified ? "" : " is-missing");
+                            pubSpan.textContent = art.publisher || "Publisher unidentified";
+
+                            const dateAvailable = art.publication_date_available !== undefined
+                                ? art.publication_date_available
+                                : Boolean(art.publication_date && String(art.publication_date).trim());
 
                             const dateSpan = document.createElement("time");
-                            dateSpan.textContent = formatDisplayDate(art.publication_date);
+                            dateSpan.className = dateAvailable ? "" : "is-missing";
+                            dateSpan.textContent = dateAvailable ? formatDisplayDate(art.publication_date) : "Date unavailable";
 
                             const srcBadge = document.createElement("span");
                             srcBadge.className = "provenance-tag source-tag";
@@ -380,10 +466,35 @@
 
                             metaDiv.append(pubSpan, dateSpan, srcBadge);
 
+                            if (art.source_provider) {
+                                const providerSpan = document.createElement("span");
+                                providerSpan.className = "provenance-tag provider-tag";
+                                providerSpan.textContent = art.source_provider;
+                                metaDiv.append(providerSpan);
+                            }
+
+                            const infoMissing = art.source_information_missing !== undefined
+                                ? art.source_information_missing
+                                : !(pubIdentified && dateAvailable && Boolean(art.url) && Boolean(art.source_provider));
+
+                            const qualityTag = document.createElement("span");
+                            if (infoMissing) {
+                                qualityTag.className = "provenance-tag quality-missing-tag";
+                                qualityTag.textContent = "Partial metadata";
+                            } else {
+                                qualityTag.className = "provenance-tag quality-complete-tag";
+                                qualityTag.textContent = "Verified metadata";
+                            }
+                            metaDiv.append(qualityTag);
+
                             const headline = document.createElement("h4");
                             headline.className = "supporting-article-headline";
 
-                            if (art.url) {
+                            const urlAvailable = art.original_url_available !== undefined
+                                ? art.original_url_available
+                                : Boolean(art.url && String(art.url).trim());
+
+                            if (urlAvailable && art.url) {
                                 const link = document.createElement("a");
                                 link.href = art.url;
                                 link.target = "_blank";
@@ -391,7 +502,7 @@
                                 link.innerHTML = `${escapeHtml(art.title || "Read article")} <span class="external-icon" aria-hidden="true">↗</span>`;
                                 headline.appendChild(link);
                             } else {
-                                headline.textContent = art.title || "Untitled article";
+                                headline.innerHTML = `${escapeHtml(art.title || "Untitled article")} <span class="url-missing-notice">(Original URL unavailable)</span>`;
                             }
 
                             artRow.appendChild(metaDiv);
@@ -425,6 +536,11 @@
                     card.append(topRow, titleEl, descEl);
                     if (signalsElement) {
                         card.append(signalsElement);
+                    }
+                    const provSignals = entry.provenance_signals || associatedGroup?.provenance_signals;
+                    const provSignalsElement = createProvenanceSignalsElement(provSignals);
+                    if (provSignalsElement) {
+                        card.append(provSignalsElement);
                     }
                     card.append(footerRow, drawer);
 
@@ -518,8 +634,11 @@
                     sources.append(link);
                 });
 
+                const provSignalsSection = createProvenanceSignalsElement(group.provenance_signals);
+
                 section.append(heading, note);
                 if (signalsSection) section.append(signalsSection);
+                if (provSignalsSection) section.append(provSignalsSection);
                 section.append(sources);
                 groupsList.append(section);
             });
@@ -587,7 +706,11 @@
                 const eventsCount = (data.timeline || []).length;
 
                 if (resultsStatCount) {
-                    resultsStatCount.textContent = `${eventsCount} development${eventsCount === 1 ? "" : "s"} · ${articlesCount} article${articlesCount === 1 ? "" : "s"}`;
+                    const prov = data.provenance_signals;
+                    const provText = prov
+                        ? ` · ${prov.independent_source_count} publisher${prov.independent_source_count === 1 ? "" : "s"}${prov.source_information_missing ? " (partial metadata)" : " (complete metadata)"}`
+                        : "";
+                    resultsStatCount.textContent = `${eventsCount} development${eventsCount === 1 ? "" : "s"} · ${articlesCount} article${articlesCount === 1 ? "" : "s"}${provText}`;
                 }
 
                 if (resultsLeadText) {

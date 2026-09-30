@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1-11 are complete. Step 12 final testing and deployment readiness is in progress. The project provides a Flask application factory, a responsive News History interface, a replaceable news provider, SQLite persistence, local retrieval, deterministic grouping, an automatically assembled timeline, mock-first grounded AI services, and explicit source traceability.
+Steps 1–16 are complete (including Phase 2 Step 16: Source Quality and Provenance Signals). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, and explicit source quality and provenance signals.
 
 ## Features
 
@@ -13,6 +13,8 @@ Steps 1-11 are complete. Step 12 final testing and deployment readiness is in pr
 - Deduplicate articles by canonical URL.
 - Combine stored and newly retrieved articles.
 - Detect related articles with explainable weighted keyword overlap.
+- Cross-source agreement and conflict detection.
+- Expose source-quality and provenance signals without subjective credibility rankings.
 - Assemble a chronological timeline from publication dates.
 - Generate grounded mock summaries and question answers from available metadata.
 - Display publishers, providers, publication dates, retrieval timestamps, original URLs, and supporting sources.
@@ -137,13 +139,39 @@ Summaries are automatically generated from the available News History source dat
 
 The context builder creates the foundation for future grounded question answering from retrieved articles, groups, and timeline entries. `POST /api/question` accepts `question` and `query` and returns a mock grounded answer with supporting article IDs. It does not perform web browsing, vector search, or arbitrary internet access.
 
-## Source provenance
+## Source provenance and quality signals
 
-`ProvenanceService` builds neutral source references from existing article records. Each reference preserves the article ID, publisher, original URL, publication date, retrieval timestamp, and metadata provider. `publication_date` is when the source reports publication; `retrieved_at` is when News History obtained the metadata. Missing values remain missing.
+`ProvenanceService` builds neutral source references and exposes objective source-quality and provenance signals from already retrieved application data without creating subjective credibility rankings.
 
-Groups and timelines expose supporting source references, while summaries and grounded answers expose the sources behind their generated content. The UI distinguishes `SOURCE DATA`, `AUTOMATIC GROUPING`, `AUTOMATIC TIMELINE`, and `AI-GENERATED CONTENT`. Automatic groups and timelines are interpretations, not independently verified events. Conflicting reports remain separate rather than being resolved automatically.
+Each source reference preserves the article ID, title, publisher, original URL, publication date, retrieval timestamp, and metadata provider. `publication_date` is when the source reports publication; `retrieved_at` is when News History obtained the metadata. Missing values remain missing.
 
-News History provides source traceability and provenance. It does not independently verify every claim made by external publishers. It does not assign reliability, credibility, bias, or fact-checking scores.
+### Provenance signals
+
+Signals are computed using only information actually available in the system:
+
+- `publisher_identified`: Boolean indicating whether a publisher name is identified in the source metadata.
+- `original_url_available`: Boolean indicating whether the original article URL is available. Original URLs are always preserved unchanged.
+- `publication_date_available`: Boolean indicating whether a valid publication date was reported.
+- `source_provider_identified`: Boolean indicating whether the provider adapter (e.g. GDELT, NewsAPI, Mock) is identified.
+- `multiple_sources_found`: Boolean indicating whether multiple source records corroborate an event, cluster, or query.
+- `independent_source_count`: Integer count of distinct, identified publishers covering the story.
+- `source_information_missing`: Boolean flag highlighting whether any key provenance metadata (publisher, date, URL, or provider) is incomplete.
+
+### Neutrality and ethical guardrails
+
+News History provides transparency into source provenance and metadata completeness:
+- **Original source URLs are kept unchanged.**
+- **Publisher information is never invented or fabricated.**
+- **No credibility scores or trust rankings are assigned** (never ranks publishers as trustworthy/untrustworthy).
+- **No political bias is inferred or scored.**
+
+### API and Frontend exposure
+
+These signals are exposed at all levels of the API (`POST /api/search`):
+- Top-level `provenance_signals` summarize coverage across the entire query.
+- Each result item in `results` includes its individual provenance signals and metadata completeness.
+- Timeline entries in `timeline` and thematic clusters in `groups` provide aggregate signals (`independent_source_count`, `multiple_sources_found`, `source_information_missing`).
+- The frontend renders these signals cleanly via subtle badges, indicators in event cards, metadata statuses in the expandable source drawer, and coverage stats in the research workspace.
 
 ## SQLite database
 

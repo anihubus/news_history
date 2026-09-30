@@ -63,6 +63,8 @@ class SearchOrchestrator:
             summaries, retrieval.articles
         )
 
+        overall_signals = self.provenance_service.collection_signals(retrieval.articles)
+
         if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
                 "success": False,
@@ -74,6 +76,7 @@ class SearchOrchestrator:
                 "timeline": enriched_timeline,
                 "summary": self._topic_summary(enriched_summaries),
                 "group_summaries": self._group_summaries(enriched_summaries),
+                "provenance_signals": overall_signals,
                 "error": retrieval.provider_error,
             }
 
@@ -88,6 +91,7 @@ class SearchOrchestrator:
             "timeline": enriched_timeline,
             "summary": self._topic_summary(enriched_summaries),
             "group_summaries": self._group_summaries(enriched_summaries),
+            "provenance_signals": overall_signals,
         }
         if retrieval.provider_error:
             result["message"] = retrieval.provider_error
