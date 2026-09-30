@@ -2,7 +2,8 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from app.providers.gdelt_provider import GDELTProvider, ProviderError, RateLimitError
+from app.providers.gdelt_provider import GDELTProvider
+from app.providers.base_provider import ProviderError, RateLimitError
 
 
 class GDELTProviderTestCase(unittest.TestCase):

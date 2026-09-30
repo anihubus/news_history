@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 from app.database import initialize_database
 from app.models.article import Article
-from app.providers.gdelt_provider import ProviderError, RateLimitError
+from app.providers.base_provider import ProviderError, RateLimitError
 from app.repositories.article_repository import ArticleRepository
 from app.services.article_retrieval_service import ArticleRetrievalService
 

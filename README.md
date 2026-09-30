@@ -68,19 +68,27 @@ For local development, `NEWS_PROVIDER=mock` avoids external network calls. Debug
 
 ### Choose a news provider
 
-The application uses GDELT by default. To use the development-only mock provider
-without making external network requests, set `NEWS_PROVIDER=mock` before starting
+The application uses multiple providers. By default it uses `gdelt`. To use the development-only mock provider
+without making external network requests, set `NEWS_PROVIDERS=mock` before starting
 the application:
 
 ```powershell
-$env:NEWS_PROVIDER = "mock"
+$env:NEWS_PROVIDERS = "mock"
 python run.py
 ```
 
-To explicitly use GDELT, set `NEWS_PROVIDER=gdelt`:
+To explicitly use GDELT, set `NEWS_PROVIDERS=gdelt`:
 
 ```powershell
-$env:NEWS_PROVIDER = "gdelt"
+$env:NEWS_PROVIDERS = "gdelt"
+python run.py
+```
+
+To use NewsAPI as an additional provider, set `NEWS_PROVIDERS=gdelt,newsapi` and configure `NEWSAPI_KEY`:
+
+```powershell
+$env:NEWS_PROVIDERS = "gdelt,newsapi"
+$env:NEWSAPI_KEY = "your_newsapi_key"
 python run.py
 ```
 
@@ -154,10 +162,13 @@ The database uses Python's built-in `sqlite3` module; no manual SQL commands or 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `NEWS_PROVIDER` | `gdelt` | Selects `gdelt` or `mock`. |
+| `NEWS_PROVIDERS` | `gdelt` | Selects multiple providers like `gdelt`, `mock`, or `newsapi` (comma separated). |
+| `NEWS_PROVIDER` | `gdelt` | Fallback for `NEWS_PROVIDERS`. |
 | `GDELT_BASE_URL` | GDELT DOC endpoint | Provider endpoint. |
 | `GDELT_MAX_RESULTS` | `10` | Maximum provider results per request. |
 | `GDELT_TIMEOUT` | `10` | Provider request timeout in seconds. |
+| `NEWSAPI_KEY` | None | API key for NewsAPI. |
+| `NEWSAPI_BASE_URL` | `https://newsapi.org/v2/everything` | NewsAPI endpoint. |
 | `DATABASE_PATH` | `instance/news_history.db` | SQLite database location. |
 | `SEARCH_RESULT_LIMIT` | `20` | Final search result limit. |
 | `RELATED_ARTICLE_THRESHOLD` | `0.30` | Deterministic grouping threshold. |
