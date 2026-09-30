@@ -92,12 +92,256 @@
         const summaryText = document.querySelector("#summary-text");
         const summarySourcesChips = document.querySelector("#summary-sources-chips");
 
+        // Refresh & Polling Elements (Step 21)
+        const refreshToolbar = document.querySelector("#refresh-toolbar");
+        const refreshStatusDot = document.querySelector("#refresh-status-dot");
+        const refreshLastUpdated = document.querySelector("#refresh-last-updated");
+        const refreshIntervalSelect = document.querySelector("#refresh-interval-select");
+        const manualRefreshBtn = document.querySelector("#manual-refresh-btn");
+        const newArticlesBanner = document.querySelector("#new-articles-banner");
+        const newArticlesText = document.querySelector("#new-articles-text");
+        const newArticlesDismissBtn = document.querySelector("#new-articles-dismiss-btn");
+
         let currentQuery = "";
         let isSearching = false;
+        let isRefreshing = false;
+        let pollTimer = null;
+        let refreshIntervalMs = (typeof window !== "undefined" && (window.CHRONICLE_REFRESH_INTERVAL || window.NEWS_HISTORY_REFRESH_INTERVAL)) || 60000;
+        const knownCanonicalUrls = new Set();
+        const knownArticleIds = new Set();
+        let latestResultsData = null;
+
+        const canonicalizeUrl = (url) => {
+            if (!url || typeof url !== "string") return "";
+            try {
+                const parsed = new URL(url.trim());
+                const scheme = parsed.protocol.toLowerCase();
+                let host = parsed.hostname.toLowerCase();
+                if (parsed.port && !((scheme === "http:" && parsed.port === "80") || (scheme === "https:" && parsed.port === "443"))) {
+                    host = `${host}:${parsed.port}`;
+                }
+                const trackingParams = new Set(["fbclid", "gclid", "dclid", "mc_cid", "mc_eid"]);
+                const searchParams = new URLSearchParams();
+                const entries = Array.from(parsed.searchParams.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+                for (const [key, val] of entries) {
+                    const k = key.toLowerCase();
+                    if (!k.startsWith("utm_") && !trackingParams.has(k)) {
+                        searchParams.append(key, val);
+                    }
+                }
+                const q = searchParams.toString();
+                let path = parsed.pathname || "/";
+                return `${scheme}//${host}${path}${q ? "?" + q : ""}`;
+            } catch {
+                return url.trim().toLowerCase();
+            }
+        };
+
+        const formatLastUpdatedTime = (date = new Date()) => {
+            try {
+                return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+            } catch {
+                return date.toTimeString().split(" ")[0];
+            }
+        };
+
+        const updateLastUpdatedDisplay = () => {
+            if (refreshLastUpdated) {
+                refreshLastUpdated.textContent = `Last updated: ${formatLastUpdatedTime()}`;
+            }
+        };
+
+        const scheduleNextPoll = () => {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+            if (!currentQuery || document.hidden || refreshIntervalMs <= 0) {
+                return;
+            }
+            pollTimer = setTimeout(() => {
+                triggerRefresh(false);
+            }, refreshIntervalMs);
+        };
+
+        const startPolling = () => {
+            scheduleNextPoll();
+        };
+
+        const stopPolling = () => {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        };
+
+        const restartPolling = () => {
+            stopPolling();
+            if (refreshIntervalMs > 0 && !document.hidden && currentQuery) {
+                scheduleNextPoll();
+            }
+        };
+
+        const triggerRefresh = async (manual = false) => {
+            if (!currentQuery || isSearching || isRefreshing) return;
+            if (!manual && document.hidden) return;
+            if (refreshIntervalMs === 0 && !manual) return;
+
+            isRefreshing = true;
+            if (manual && manualRefreshBtn) {
+                manualRefreshBtn.classList.add("is-refreshing");
+            }
+            if (refreshStatusDot) {
+                refreshStatusDot.classList.add("is-polling");
+                refreshStatusDot.classList.remove("is-error", "is-paused");
+            }
+
+            try {
+                const response = await fetch("/api/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: currentQuery })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    // Task 14: Handle provider errors without breaking the existing results
+                    if (refreshStatusDot) {
+                        refreshStatusDot.classList.remove("is-polling");
+                        refreshStatusDot.classList.add("is-error");
+                    }
+                    if (providerStatusBadge) {
+                        providerStatusBadge.classList.remove("is-hidden");
+                        if (response.status === 429 || data.status === "rate_limited" || data.provider_status === "rate_limited") {
+                            providerStatusBadge.classList.add("is-warning");
+                            providerStatusBadge.textContent = "Provider rate-limited";
+                        } else {
+                            providerStatusBadge.classList.add("is-error");
+                            providerStatusBadge.textContent = "Provider unavailable";
+                        }
+                    }
+                    if (providerNotice && (data.error || data.message)) {
+                        providerNotice.textContent = data.error || data.message;
+                        providerNotice.classList.remove("is-hidden");
+                    }
+                    return;
+                }
+
+                // Update provider status badge and notice
+                const providerStatusBadgeEl = document.getElementById("provider-status-badge");
+                const providerNoticeEl = document.getElementById("provider-status-notice");
+                if (providerStatusBadgeEl) {
+                    providerStatusBadgeEl.classList.remove("is-hidden", "is-warning", "is-error");
+                    if (data.provider_status === "ok") {
+                        providerStatusBadgeEl.textContent = "Live provider connected";
+                    } else if (data.provider_status === "rate_limited") {
+                        providerStatusBadgeEl.classList.add("is-warning");
+                        providerStatusBadgeEl.textContent = "Provider rate-limited";
+                    } else if (data.provider_status === "provider_unavailable") {
+                        providerStatusBadgeEl.classList.add("is-error");
+                        providerStatusBadgeEl.textContent = "Provider unavailable";
+                    }
+                }
+                if (providerNoticeEl) {
+                    if (data.message && data.provider_status !== "ok") {
+                        providerNoticeEl.textContent = data.message;
+                        providerNoticeEl.classList.remove("is-hidden");
+                    } else {
+                        providerNoticeEl.classList.add("is-hidden");
+                    }
+                }
+
+                // Task 10: Show Last updated: <time>
+                updateLastUpdatedDisplay();
+
+                // Task 7: Detect newly retrieved articles using article ID / canonical URL
+                const incomingResults = data.results || [];
+                const newlyFoundArticles = [];
+
+                incomingResults.forEach((art) => {
+                    const canon = art.url ? canonicalizeUrl(art.url) : "";
+                    const idKnown = art.article_id !== undefined && art.article_id !== null && knownArticleIds.has(art.article_id);
+                    const urlKnown = canon && knownCanonicalUrls.has(canon);
+
+                    if (!idKnown && !urlKnown) {
+                        newlyFoundArticles.push(art);
+                        if (canon) knownCanonicalUrls.add(canon);
+                        if (art.article_id !== undefined && art.article_id !== null) {
+                            knownArticleIds.add(art.article_id);
+                        }
+                    }
+                });
+
+                // Task 8 & 9 & 10: If new articles arrived, update UI
+                if (newlyFoundArticles.length > 0) {
+                    if (newArticlesBanner && newArticlesText) {
+                        newArticlesText.textContent = `New articles available (${newlyFoundArticles.length} new article${newlyFoundArticles.length === 1 ? "" : "s"} added)`;
+                        newArticlesBanner.classList.remove("is-hidden");
+                    }
+
+                    const combinedArticles = [...newlyFoundArticles, ...(latestResultsData?.results || [])];
+                    latestResultsData = {
+                        results: combinedArticles,
+                        timeline: data.timeline || latestResultsData?.timeline || [],
+                        groups: data.groups || latestResultsData?.groups || [],
+                        summary: data.summary || latestResultsData?.summary,
+                        provenance_signals: data.provenance_signals || latestResultsData?.provenance_signals,
+                        verification_dashboard: data.verification_dashboard || latestResultsData?.verification_dashboard,
+                        verification_signals: data.verification_signals || data.warning_signals || latestResultsData?.verification_signals
+                    };
+
+                    renderTimeline(
+                        latestResultsData.timeline,
+                        latestResultsData.results,
+                        latestResultsData.groups
+                    );
+
+                    renderVerificationDashboard(
+                        latestResultsData.verification_dashboard,
+                        latestResultsData.results,
+                        latestResultsData.provenance_signals,
+                        latestResultsData.verification_signals
+                    );
+
+                    renderLegacyGroups(latestResultsData.groups);
+
+                    if (data.summary) {
+                        renderSummary(data.summary);
+                    }
+
+                    const totalArts = latestResultsData.results.length;
+                    const totalEvents = latestResultsData.timeline.length;
+                    if (resultsStatCount) {
+                        const prov = latestResultsData.provenance_signals;
+                        const provText = prov
+                            ? ` · ${prov.independent_source_count} publisher${prov.independent_source_count === 1 ? "" : "s"}${prov.source_information_missing ? " (partial metadata)" : " (complete metadata)"}`
+                            : "";
+                        resultsStatCount.textContent = `${totalEvents} development${totalEvents === 1 ? "" : "s"} · ${totalArts} article${totalArts === 1 ? "" : "s"}${provText}`;
+                    }
+                }
+
+                if (refreshStatusDot) {
+                    refreshStatusDot.classList.remove("is-polling", "is-error");
+                }
+
+            } catch (err) {
+                // Task 14: Network failure during poll must not break existing results
+                if (refreshStatusDot) {
+                    refreshStatusDot.classList.remove("is-polling");
+                    refreshStatusDot.classList.add("is-error");
+                }
+            } finally {
+                isRefreshing = false;
+                if (manualRefreshBtn) {
+                    manualRefreshBtn.classList.remove("is-refreshing");
+                }
+                scheduleNextPoll();
+            }
+        };
 
         // View State Switcher: 'landing' | 'loading' | 'results'
         const setViewState = (state) => {
             if (state === "landing") {
+                stopPolling();
+                currentQuery = "";
+                newArticlesBanner?.classList.add("is-hidden");
                 landingView?.classList.remove("is-hidden");
                 loadingView?.classList.add("is-hidden");
                 resultsView?.classList.add("is-hidden");
@@ -111,6 +355,8 @@
                     setTimeout(() => landingSearchInput.focus(), 50);
                 }
             } else if (state === "loading") {
+                stopPolling();
+                newArticlesBanner?.classList.add("is-hidden");
                 landingView?.classList.add("is-hidden");
                 loadingView?.classList.remove("is-hidden");
                 resultsView?.classList.add("is-hidden");
@@ -1030,6 +1276,29 @@
                 renderSummary(data.summary);
                 qaSection?.classList.remove("is-hidden");
 
+                // Initialize known articles tracking for fresh polling updates (Step 21)
+                knownCanonicalUrls.clear();
+                knownArticleIds.clear();
+                (data.results || []).forEach((art) => {
+                    if (art.url) knownCanonicalUrls.add(canonicalizeUrl(art.url));
+                    if (art.article_id !== undefined && art.article_id !== null) {
+                        knownArticleIds.add(art.article_id);
+                    }
+                });
+                latestResultsData = {
+                    results: [...(data.results || [])],
+                    timeline: [...(data.timeline || [])],
+                    groups: [...(data.groups || [])],
+                    summary: data.summary,
+                    provenance_signals: data.provenance_signals,
+                    verification_dashboard: data.verification_dashboard,
+                    verification_signals: data.verification_signals || data.warning_signals
+                };
+                currentQuery = trimmed;
+                updateLastUpdatedDisplay();
+                newArticlesBanner?.classList.add("is-hidden");
+                startPolling();
+
             } catch (err) {
                 setViewState("results");
                 if (resultsTitleHeading) resultsTitleHeading.textContent = `History of "${trimmed}"`;
@@ -1160,6 +1429,66 @@
                 questionSubmitBtn?.removeAttribute("disabled");
             }
         });
+
+        // Manual Refresh Button (Step 21 Task 11 & 12)
+        manualRefreshBtn?.addEventListener("click", () => {
+            triggerRefresh(true);
+        });
+
+        // Configurable Interval Dropdown (Step 21 Task 2 & 3)
+        if (refreshIntervalSelect) {
+            refreshIntervalSelect.value = String(refreshIntervalMs);
+            refreshIntervalSelect.addEventListener("change", (e) => {
+                const val = parseInt(e.target.value, 10);
+                refreshIntervalMs = isNaN(val) ? 60000 : val;
+                if (typeof window !== "undefined") {
+                    window.CHRONICLE_REFRESH_INTERVAL = refreshIntervalMs;
+                }
+                restartPolling();
+            });
+        }
+
+        // Dismiss New Articles Banner
+        newArticlesDismissBtn?.addEventListener("click", () => {
+            newArticlesBanner?.classList.add("is-hidden");
+        });
+
+        // Page Visibility API: Stop polling when the page is not being viewed (Step 21 Task 13)
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                stopPolling();
+                if (refreshStatusDot) {
+                    refreshStatusDot.classList.add("is-paused");
+                }
+            } else {
+                if (refreshStatusDot) {
+                    refreshStatusDot.classList.remove("is-paused");
+                }
+                if (currentQuery) {
+                    triggerRefresh(false);
+                }
+            }
+        });
+
+        // Programmatic control export (Step 21)
+        if (typeof window !== "undefined") {
+            window.ChronicleNewsRefresh = {
+                triggerRefresh,
+                startPolling,
+                stopPolling,
+                getInterval: () => refreshIntervalMs,
+                setInterval: (ms) => {
+                    refreshIntervalMs = ms;
+                    if (refreshIntervalSelect) {
+                        refreshIntervalSelect.value = String(ms);
+                    }
+                    restartPolling();
+                },
+                getKnownArticleCount: () => knownArticleIds.size,
+                getCurrentQuery: () => currentQuery,
+                isRefreshing: () => isRefreshing,
+            };
+        }
 
         // Popstate handler for browser back/forward navigation
         window.addEventListener("popstate", (e) => {

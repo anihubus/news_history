@@ -923,6 +923,175 @@ input {
     gap: 8px;
 }
 
+/* Real-Time News Refresh & Polling Toolbar (Step 21) */
+.refresh-toolbar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.refresh-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.refresh-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #10b981;
+    display: inline-block;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    transition: background-color 0.2s ease;
+}
+
+.refresh-status-dot.is-polling {
+    background-color: #3b82f6;
+    animation: pulseDot 1.2s infinite ease-in-out;
+}
+
+.refresh-status-dot.is-paused {
+    background-color: #94a3b8;
+    box-shadow: none;
+}
+
+.refresh-status-dot.is-error {
+    background-color: #f59e0b;
+}
+
+@keyframes pulseDot {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 0.6;
+    }
+}
+
+.refresh-status-text {
+    font-weight: 500;
+}
+
+.refresh-interval-select {
+    font-size: 11px;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
+}
+
+.refresh-interval-select:focus,
+.refresh-interval-select:hover {
+    border-color: #94a3b8;
+}
+
+.manual-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #1e293b;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.manual-refresh-btn:hover {
+    background-color: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.manual-refresh-btn:active {
+    transform: translateY(1px);
+}
+
+.manual-refresh-btn.is-refreshing .refresh-icon {
+    animation: spinRefresh 0.8s linear infinite;
+}
+
+@keyframes spinRefresh {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* New Articles Available Banner (Step 21) */
+.new-articles-banner {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #6ee7b7;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.12);
+    animation: slideDownBanner 0.3s ease-out;
+}
+
+@keyframes slideDownBanner {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.new-articles-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.new-articles-text {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+}
+
+.new-articles-dismiss {
+    background: none;
+    border: none;
+    color: #047857;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background 0.15s ease;
+}
+
+.new-articles-dismiss:hover {
+    background: rgba(4, 120, 87, 0.12);
+}
+
 .provenance-tag.quality-complete-tag {
     background-color: #ecfdf5;
     color: #047857;

@@ -134,6 +134,42 @@
                     <p class="results-lead" id="results-lead-text">Timeline of reported events and historical
                         developments.</p>
                     <div class="provider-status-notice is-hidden" id="provider-status-notice" role="status"></div>
+
+                    <!-- Real-Time Refresh & Live Sync Toolbar (Step 21) -->
+                    <div class="refresh-toolbar" id="refresh-toolbar" aria-label="Refresh and synchronization controls">
+                        <div class="refresh-left">
+                            <span class="refresh-status-dot" id="refresh-status-dot" aria-hidden="true"></span>
+                            <span class="refresh-status-text" id="refresh-last-updated">Last updated: Just now</span>
+                            <span class="refresh-interval-wrap">
+                                <label for="refresh-interval-select" class="visually-hidden">Auto-refresh Interval</label>
+                                <select id="refresh-interval-select" class="refresh-interval-select" title="Auto-refresh interval">
+                                    <option value="30000">Auto: 30s</option>
+                                    <option value="60000" selected>Auto: 60s</option>
+                                    <option value="120000">Auto: 2m</option>
+                                    <option value="0">Auto: Off</option>
+                                </select>
+                            </span>
+                        </div>
+                        <div class="refresh-right">
+                            <button type="button" class="manual-refresh-btn" id="manual-refresh-btn" aria-label="Refresh news articles">
+                                <span class="refresh-icon" aria-hidden="true">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                    </svg>
+                                </span>
+                                <span class="refresh-btn-label">Refresh</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- New Articles Available Notification Banner (Step 21) -->
+                    <div class="new-articles-banner is-hidden" id="new-articles-banner" role="status" aria-live="polite">
+                        <span class="new-articles-icon" aria-hidden="true">✨</span>
+                        <span class="new-articles-text" id="new-articles-text">New articles available</span>
+                        <button type="button" class="new-articles-dismiss" id="new-articles-dismiss-btn" aria-label="Dismiss notification">✕</button>
+                    </div>
                 </div>
 
                 <!-- Empty / Error Notification State -->
