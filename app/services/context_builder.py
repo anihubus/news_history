@@ -21,6 +21,10 @@ class ContextBuilder:
         ref = self.provenance_service.article_reference(article)
         ref["description"] = self._extract(article, "description")
         ref["verification_signals"] = self.verification_service.analyze_article(article)
+        if self._extract(article, "is_new") is not None:
+            ref["is_new"] = self._extract(article, "is_new")
+        if self._extract(article, "updated") is not None:
+            ref["updated"] = self._extract(article, "updated")
         return ref
 
     def build(
@@ -102,3 +106,6 @@ class ContextBuilder:
             "supporting_article_ids": supporting_ids,
             "conflicting_article_ids": sorted(list(conflicting_ids)),
         }
+
+    # Explicit alias for rebuilding context on fresh article arrival
+    rebuild = build

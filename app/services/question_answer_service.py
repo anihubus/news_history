@@ -49,9 +49,22 @@ class QuestionAnswerService:
         raw_ids = result.get("supporting_article_ids", [])
         verified_ids = [aid for aid in raw_ids if aid in valid_ids]
 
+        if raw_ids and not verified_ids:
+            return {
+                "success": True,
+                "answer": "The available sources do not provide enough information to answer this question.",
+                "supporting_article_ids": [],
+                "automatic": True,
+                "provider": self.ai_provider.name,
+            }
+
+        answer_text = result["answer"]
+        if not verified_ids and "do not provide" not in answer_text.lower() and "unavailable" not in answer_text.lower():
+            answer_text = "The available sources do not provide enough information to answer this question."
+
         return {
             "success": True,
-            "answer": result["answer"],
+            "answer": answer_text,
             "supporting_article_ids": verified_ids,
             "automatic": True,
             "provider": self.ai_provider.name,

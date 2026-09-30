@@ -44,5 +44,6 @@ def question():
     result = current_app.extensions["search_orchestrator"].answer_question(
         payload.get("question"),
         payload.get("query"),
+        existing_timeline=payload.get("existing_timeline"),
     )
     return jsonify(result), 200 if result["success"] else 400

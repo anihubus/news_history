@@ -23,10 +23,26 @@ class MockAIProvider(AIProvider):
         "differ", "differing", "fake"
     }
 
+    GENERAL_QUESTION_WORDS = {
+        "what", "when", "where", "which", "who", "why", "how", "is", "are", "was",
+        "were", "did", "do", "does", "the", "a", "an", "in", "on", "at", "for", "to", "of", "and", "or",
+        "this", "that", "these", "those", "about", "there", "story", "event", "article",
+        "articles", "report", "reporting", "reports", "news", "give", "tell", "show",
+        "covered", "happened", "occurred", "summary", "summarize", "detail", "details",
+        "information", "info", "context", "findings", "finding", "find", "all", "latest",
+        "recent", "known", "mention", "mentioned", "describe", "described", "take", "place"
+    }
+
     def summarize(self, instruction, context):
         articles = context.get("articles", [])
         if not articles:
             return "The available reporting is insufficient to produce a summary."
+
+        summary_type = context.get("summary_type")
+        timeline = context.get("timeline", [])
+        if summary_type == "timeline" and timeline:
+            titles = [entry.get("title") for entry in timeline if entry.get("title")]
+            return f"Timeline covers {len(timeline)} chronological development(s) from {len(articles)} article(s): " + "; ".join(titles[:3]) + "."
 
         titles = [article.get("title") for article in articles if article.get("title")]
         return f"Available reporting includes {len(articles)} article(s): " + "; ".join(titles[:3]) + "."
@@ -43,6 +59,11 @@ class MockAIProvider(AIProvider):
         q_clean = q.rstrip("?.!")
 
         all_ids = [a.get("article_id") for a in articles if a.get("article_id") is not None]
+        all_text = " ".join([
+            ((a.get("title") or "") + " " + (a.get("description") or "") + " " + (context.get("query") or "")).lower()
+            for a in articles
+        ])
+        general_question_words = self.GENERAL_QUESTION_WORDS
 
         # 1. Source count questions ("How many sources reported this?", "how many sources", "how many publishers", "how many articles", "source count")
         source_count_triggers = [
@@ -160,28 +181,48 @@ class MockAIProvider(AIProvider):
                 "supporting_article_ids": all_ids,
             }
 
-        # 6. Check for completely unsupported / insufficient evidence questions
-        general_question_words = {
-            "what", "when", "where", "which", "who", "why", "how", "is", "are", "was",
-            "were", "did", "do", "does", "the", "a", "an", "in", "on", "at", "for", "to", "of", "and", "or",
-            "this", "that", "these", "those", "about", "there", "story", "event", "article",
-            "articles", "report", "reporting", "reports", "news", "give", "tell", "show",
-            "covered", "happened", "occurred", "summary", "summarize", "detail", "details",
-            "information", "info", "context", "findings", "finding", "find", "all", "latest",
-            "recent", "known", "mention", "mentioned", "describe", "described", "take", "place"
-        }
+        # 6. Fresh evidence & breaking news queries ("breaking news", "fresh evidence", "latest update", "recent news")
+        fresh_triggers = [
+            "fresh evidence", "latest evidence", "new evidence",
+            "breaking news", "breaking update", "latest breaking",
+            "fresh reporting", "latest update", "latest news", "recent news",
+            "recent developments", "latest development"
+        ]
+        if any(trigger in q for trigger in fresh_triggers):
+            specific_words = set(q_clean.split()) - general_question_words - {
+                "fresh", "evidence", "breaking", "news", "update", "updates", "latest", "recent", "development", "developments"
+            }
+            if specific_words and not any(w in all_text for w in specific_words):
+                return {
+                    "answer": "Fresh evidence is currently unavailable in the retrieved reporting.",
+                    "supporting_article_ids": [],
+                }
+            sorted_arts = sorted(
+                articles,
+                key=lambda a: (a.get("publication_date") or "", a.get("retrieved_at") or "", a.get("article_id") or 0),
+                reverse=True,
+            )
+            latest = sorted_arts[0]
+            latest_id = latest.get("article_id")
+            latest_title = latest.get("title") or "Latest report"
+            latest_pub = latest.get("publisher") or "Independent source"
+            latest_desc = latest.get("description") or "Latest reported details from available coverage."
+            date_info = f" ({latest.get('publication_date')})" if latest.get("publication_date") else ""
+            answer = f"According to the latest reporting from {latest_pub}{date_info} in \"{latest_title}\", {latest_desc}"
+            return {
+                "answer": answer,
+                "supporting_article_ids": [latest_id] if latest_id is not None else all_ids,
+            }
+
+        # 7. Check for completely unsupported / insufficient evidence questions
         question_words = set(q_clean.split()) - general_question_words
-        all_text = " ".join([
-            ((a.get("title") or "") + " " + (a.get("description") or "") + " " + (context.get("query") or "")).lower()
-            for a in articles
-        ])
         if question_words and not any(w in all_text for w in question_words):
             return {
                 "answer": "The available sources do not provide enough information to answer this question.",
                 "supporting_article_ids": [],
             }
 
-        # 7. General grounded question (preserve existing Q&A behavior)
+        # 8. General grounded question (preserve existing Q&A behavior)
         titles = [article.get("title") for article in articles if article.get("title")]
         return {
             "answer": f"Based on the available sources, the retrieved reporting includes: {'; '.join(titles[:3])}.",

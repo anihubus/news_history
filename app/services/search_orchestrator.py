@@ -149,15 +149,24 @@ class SearchOrchestrator:
             all_articles=all_articles,
         )
 
-    def answer_question(self, question, query):
+    def answer_question(self, question, query, existing_timeline=None, articles=None):
         normalized_query = (query or "").strip()
-        rows = self.article_repository.search_articles(normalized_query) if normalized_query else []
-        articles = [self.retrieval_service._article_from_row(row) for row in rows]
+        if articles is None:
+            rows = self.article_repository.search_articles(normalized_query) if normalized_query else []
+            articles = [self.retrieval_service._article_from_row(row) for row in rows]
         grouping = self.grouping_service.group_articles(articles)
         analyzed_groups = self.cross_source_service.analyze_groups(grouping["groups"], articles)
         enriched_groups = self.provenance_service.enrich_groups(analyzed_groups, articles)
         enriched_groups = self.verification_service.enrich_groups(enriched_groups, articles)
-        timeline = self.timeline_service.generate(articles, enriched_groups)
+        if existing_timeline:
+            timeline = self.timeline_service.update_timeline(
+                existing_timeline=existing_timeline,
+                new_articles=articles,
+                groups=enriched_groups,
+                all_articles=articles,
+            )
+        else:
+            timeline = self.timeline_service.generate(articles, enriched_groups)
         enriched_timeline = self.provenance_service.enrich_timeline(timeline, articles)
         enriched_timeline = self.verification_service.enrich_timeline(enriched_timeline, articles)
         overall_signals = self.provenance_service.collection_signals(articles)
@@ -176,3 +185,35 @@ class SearchOrchestrator:
         enriched_answer["verification_signals"] = self.verification_service.analyze_articles(supporting)
         enriched_answer["warning_signals"] = enriched_answer["verification_signals"]
         return enriched_answer
+
+    def build_grounded_context(self, query, existing_timeline=None, articles=None):
+        """Build and return the complete grounded context for a query."""
+        normalized_query = (query or "").strip()
+        if articles is None:
+            rows = self.article_repository.search_articles(normalized_query) if normalized_query else []
+            articles = [self.retrieval_service._article_from_row(row) for row in rows]
+        grouping = self.grouping_service.group_articles(articles)
+        analyzed_groups = self.cross_source_service.analyze_groups(grouping["groups"], articles)
+        enriched_groups = self.provenance_service.enrich_groups(analyzed_groups, articles)
+        enriched_groups = self.verification_service.enrich_groups(enriched_groups, articles)
+        if existing_timeline:
+            timeline = self.timeline_service.update_timeline(
+                existing_timeline=existing_timeline,
+                new_articles=articles,
+                groups=enriched_groups,
+                all_articles=articles,
+            )
+        else:
+            timeline = self.timeline_service.generate(articles, enriched_groups)
+        enriched_timeline = self.provenance_service.enrich_timeline(timeline, articles)
+        enriched_timeline = self.verification_service.enrich_timeline(enriched_timeline, articles)
+        overall_signals = self.provenance_service.collection_signals(articles)
+        overall_warnings = self.verification_service.analyze_articles(articles)
+        return self.context_builder.build(
+            normalized_query,
+            articles,
+            enriched_groups,
+            enriched_timeline,
+            provenance_signals=overall_signals,
+            verification_signals=overall_warnings,
+        )

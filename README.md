@@ -174,7 +174,15 @@ The Search Orchestrator passes normalized articles, groups, and timeline entries
 
 Summaries are automatically generated from the available News History source data and may be incomplete. They must not invent facts, dates, causes, quotes, or information outside the supplied metadata and descriptions. AI failures do not remove articles, groups, relationships, or timeline results.
 
-The context builder creates the foundation for future grounded question answering from retrieved articles, groups, and timeline entries. `POST /api/question` accepts `question` and `query` and returns a mock grounded answer with supporting article IDs. It does not perform web browsing, vector search, or arbitrary internet access.
+The context builder creates the foundation for grounded question answering from retrieved articles, groups, and timeline entries. `POST /api/question` accepts `question`, `query`, and optional `existing_timeline` and returns a grounded answer strictly tied to supporting article IDs. It does not perform web browsing, vector search, or arbitrary internet access.
+
+### Real-Time Grounded AI Context Guardrails
+- **Dynamic Context Rebuilding**: When fresh articles are retrieved from live providers or new items are inserted into the database, grounded context is immediately rebuilt to incorporate newly available articles and their supporting source references.
+- **Timeline Evolution Awareness**: Summary and Q&A context are updated after timeline updates, preserving chronologically ordered developments and marking newly added entries (`updated: true`).
+- **Strict Evidence Boundaries**: The AI provider only references articles present in the retrieved context. Every answer exposes its `supporting_article_ids`.
+- **Fabricated-Source Prevention**: Any hallucinated or nonexistent source IDs returned by a provider are filtered against the verified context. If an answer lacks grounded supporting sources, the claim is rejected and replaced with an explicit notification that evidence is unavailable.
+- **Fresh Evidence & Breaking News Neutrality**: When asked about breaking news or fresh updates for which fresh reports do not exist in the retrieved coverage, the system clearly states: `"Fresh evidence is currently unavailable in the retrieved reporting."` Breaking-news facts or fabricated developments are never invented.
+- **Full Provenance Preservation**: All supporting sources retain full provenance attributes, including original URL, publisher, source provider, publication date, and retrieval timestamp.
 
 ## Source provenance and quality signals
 
