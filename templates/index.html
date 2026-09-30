@@ -1,296 +1,228 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>News History · Event Chronology &amp; Provenance Intelligence</title>
-    <meta name="description" content="Chronological news history, cross-source grouping, and provenance tracking for investigative research.">
-    <!-- Production Typography: Inter & JetBrains Mono with System Fallbacks -->
+    <title>News History</title>
+    <meta name="description"
+        content="Explore how a story unfolded over time. Reconstruct chronological timelines and provenance across news coverage.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="app-body">
-    <!-- Top System Bar -->
-    <header class="system-bar" role="banner">
-        <div class="system-bar-inner">
-            <div class="brand-group">
-                <a class="brand" href="{{ url_for('main.index') }}" aria-label="News History Home">
-                    <span class="brand-icon" aria-hidden="true">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                    </span>
-                    <span class="brand-title">News History</span>
-                </a>
-                <span class="system-badge env-prod">v1.2.4</span>
-                <span class="system-divider" aria-hidden="true">/</span>
-                <span class="header-label">Event Chronology &amp; Provenance Console</span>
-            </div>
 
-            <div class="system-telemetry">
-                <div class="telemetry-item" title="Current Universal Coordinated Time">
-                    <span class="telemetry-label">UTC:</span>
-                    <span class="telemetry-value font-mono live-clock" id="live-clock">--:--:--</span>
-                </div>
-                <div class="telemetry-item" title="Data ingestion engine status">
-                    <span class="status-indicator-dot dot-online" aria-hidden="true"></span>
-                    <span class="telemetry-label">PROVIDER:</span>
-                    <span class="telemetry-value font-mono">GDELT v2 / MOCK</span>
-                </div>
-                <div class="telemetry-item" title="Local storage engine">
-                    <span class="telemetry-label">STORAGE:</span>
-                    <span class="telemetry-value font-mono">SQLite WAL</span>
-                </div>
-            </div>
-        </div>
-        <!-- Progress bar for loading state -->
-        <div class="system-progress-bar" id="system-progress" aria-hidden="true"></div>
-    </header>
+<body>
 
-    <!-- Query & Control Command Bar -->
-    <section class="command-bar" aria-label="Query Command Bar">
-        <div class="command-bar-inner">
-            <div class="command-header">
-                <div class="command-title-wrap">
-                    <h1 id="page-title" class="command-title">Historical Intelligence Query</h1>
-                    <p class="description">Reconstruct multi-source event timelines and trace reporting provenance across chronological news coverage.</p>
-                </div>
-                <div class="command-shortcuts">
-                    <span class="shortcut-chip"><kbd>Cmd</kbd> + <kbd>K</kbd> to focus</span>
-                </div>
-            </div>
-
-            <form class="search-form" id="search-form" action="#" method="get" role="search">
-                <label for="topic-search" class="visually-hidden">What would you like to understand?</label>
-                <div class="search-controls">
-                    <div class="input-icon-wrap">
-                        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input
-                            id="topic-search"
-                            name="topic"
-                            type="search"
-                            placeholder="Query topic, entity, crisis, policy or historical event (e.g. Semiconductor Export Controls, Climate Policy)..."
-                            autocomplete="off"
-                            spellcheck="false"
-                            required
-                        >
-                        <button type="button" class="clear-btn is-hidden" id="clear-search-btn" title="Clear query" aria-label="Clear query">&times;</button>
-                    </div>
-                    <button type="submit" class="btn-primary" id="search-submit-btn">
-                        <span class="btn-spinner is-hidden" aria-hidden="true"></span>
-                        <span class="btn-text">Execute Search</span>
-                        <kbd class="btn-key">↵</kbd>
-                    </button>
-                </div>
-
-                <div class="command-presets-row">
-                    <span class="presets-label">Preset Topics:</span>
-                    <div class="presets-list" role="group" aria-label="Sample research queries">
-                        <button type="button" class="preset-chip" data-query="Climate policy">Climate Policy</button>
-                        <button type="button" class="preset-chip" data-query="Semiconductor supply chain">Semiconductor Supply Chain</button>
-                        <button type="button" class="preset-chip" data-query="Nuclear fusion energy">Nuclear Fusion Energy</button>
-                        <button type="button" class="preset-chip" data-query="Global trade agreement">Global Trade Agreement</button>
-                        <button type="button" class="preset-chip" data-query="Artificial intelligence regulation">AI Regulation</button>
-                    </div>
-                </div>
-
-                <div class="command-meta-row">
-                    <p class="search-note">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                        External attribution: Results derived from third-party provider feeds. News History does not host full article content.
-                    </p>
-                    <div class="status-wrap">
-                        <span class="status-indicator-dot dot-idle" id="search-status-dot" aria-hidden="true"></span>
-                        <p class="status" id="search-status" role="status" aria-live="polite">Ready for query</p>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </section>
-
-    <!-- Main Production Workspace -->
-    <main class="page-width workspace-layout">
-        <!-- Left Analysis Sidebar -->
-        <aside class="workspace-sidebar" aria-label="Intelligence and Synthesis Rail">
-            <!-- Executive Brief Synthesis Panel -->
-            <section class="panel-card summary-section" aria-labelledby="summary-title">
-                <div class="panel-header">
-                    <div>
-                        <p class="eyebrow">EXECUTIVE BRIEF</p>
-                        <h2 id="summary-title" class="panel-title">Intelligence Synthesis</h2>
-                    </div>
-                    <span class="badge badge-neutral">Cross-Source</span>
-                </div>
-                <p class="summary-note">Automatically generated from the available article sources.</p>
-                <div id="summary-content" class="summary-content font-tabular" aria-live="polite">A summary will appear after a search.</div>
-            </section>
-
-            <!-- Grounded Q&A Console Panel -->
-            <section class="panel-card question-section" aria-labelledby="question-title">
-                <div class="panel-header">
-                    <div>
-                        <p class="eyebrow">Ask about this story</p>
-                        <h2 id="question-title" class="panel-title">Grounded question</h2>
-                    </div>
-                    <span class="badge badge-neutral">Source Query</span>
-                </div>
-                <form id="question-form" class="question-form">
-                    <label for="question-input" class="form-label">Ask about the available sources</label>
-                    <div class="search-controls">
-                        <input id="question-input" type="text" placeholder="What key events happened over time?" autocomplete="off">
-                        <button type="submit" class="btn-secondary" id="question-submit-btn">Ask</button>
-                    </div>
-                </form>
-                <div class="question-output-box probe-response-console">
-                    <div class="question-output-header">
-                        <span class="output-dot" aria-hidden="true"></span>
-                        <span class="output-label">SOURCE QUERY CONSOLE</span>
-                    </div>
-                    <p id="question-status" class="status font-mono" role="status" aria-live="polite">Awaiting inquiry...</p>
-                </div>
-            </section>
-
-            <!-- Related Story Clusters Panel -->
-            <section class="panel-card groups-section" aria-labelledby="groups-title">
-                <div class="panel-header">
-                    <div>
-                        <p class="eyebrow">Thematic Cluster Analysis</p>
-                        <h2 id="groups-title" class="panel-title">Story Clusters</h2>
-                    </div>
-                    <span class="badge badge-neutral">Similarity &ge; 0.30</span>
-                </div>
-                <p class="panel-note">Articles clustered together based on lexical and narrative similarity.</p>
-                <div class="groups-list" id="groups-list" aria-live="polite">
-                    <div class="groups-empty-placeholder">
-                        <p class="subtle-text">Story clusters will compute after article retrieval.</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Telemetry & Index Metadata Panel -->
-            <section class="panel-card telemetry-card">
-                <div class="panel-header">
-                    <h3 class="panel-title-sm">System Pipeline Parameters</h3>
-                    <span class="badge badge-mono">CONFIG</span>
-                </div>
-                <dl class="telemetry-grid font-mono">
-                    <div class="telemetry-row">
-                        <dt>INDEX THRESHOLD</dt>
-                        <dd>0.30 Jaccard</dd>
-                    </div>
-                    <div class="telemetry-row">
-                        <dt>RETRIEVAL LIMIT</dt>
-                        <dd>20 Articles</dd>
-                    </div>
-                    <div class="telemetry-row">
-                        <dt>DATE NORMALIZER</dt>
-                        <dd>ISO 8601 UTC</dd>
-                    </div>
-                    <div class="telemetry-row">
-                        <dt>CANONICAL DEDUP</dt>
-                        <dd>URL Hash (SHA256)</dd>
-                    </div>
-                </dl>
-            </section>
-        </aside>
-
-        <!-- Right Main Workspace: Timeline and Source Data -->
-        <div class="workspace-main">
-            <!-- View Control Strip -->
-            <div class="workspace-control-strip">
-                <div class="view-tabs" role="tablist" aria-label="Workspace views">
-                    <button type="button" class="tab-btn is-active" id="tab-all" role="tab" aria-selected="true" data-view="all">Unified View</button>
-                    <button type="button" class="tab-btn" id="tab-timeline" role="tab" aria-selected="false" data-view="timeline">Timeline Only</button>
-                    <button type="button" class="tab-btn" id="tab-sources" role="tab" aria-selected="false" data-view="sources">Sources Only</button>
-                </div>
-
-                <div class="control-strip-actions">
-                    <span class="results-count font-mono" id="results-count-badge">No results yet</span>
-                </div>
-            </div>
-
-            <!-- Historical Timeline Section -->
-            <section class="results-section timeline-panel-section" id="timeline-view-container" aria-labelledby="timeline-title">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">Chronological Event Stream</p>
-                        <h2 id="timeline-title">Historical timeline</h2>
-                    </div>
-                    <span class="badge badge-accent">Chronological Sequence</span>
-                </div>
-                <p class="timeline-note">Automatically assembled from dated articles and related reporting.</p>
-
-                <div class="timeline-container">
-                    <div class="timeline-list" id="timeline-list" aria-live="polite"></div>
-                    <div class="timeline-empty-card" id="timeline-empty-card">
-                        <p class="timeline-empty" id="timeline-empty">Timeline entries will appear after a search.</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Source Data / Historical Results Section -->
-            <section class="results-section articles-panel-section" id="sources-view-container" aria-labelledby="results-title">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">SOURCE DATA</p>
-                        <h2 id="results-title">Historical results</h2>
-                    </div>
-                    <div class="heading-actions">
-                        <span class="results-count font-mono">No results yet</span>
-                    </div>
-                </div>
-
-                <!-- Structured Production Empty State -->
-                <div class="results-empty" aria-live="polite">
-                    <div class="empty-icon-wrap" aria-hidden="true">
-                        <span class="empty-mark">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Minimal Header -->
+    <header class="site-header" id="site-header" role="banner">
+        <div class="header-container">
+            <a class="brand" href="/" id="header-brand" aria-label="News History Home">
+                <span class="brand-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </span>
+                <span class="brand-name">News History</span>
+            </a>
+            <div class="header-search-wrap is-hidden" id="header-search-wrap">
+                <form class="header-search-form" id="header-search-form" role="search">
+                    <div class="search-input-box header-search-box">
+                        <span class="search-icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                <line x1="11" y1="8" x2="11" y2="14"></line>
-                                <line x1="8" y1="11" x2="14" y2="11"></line>
                             </svg>
                         </span>
+                        <input id="header-topic-search" type="search"
+                            placeholder="Search a topic, person, event, or organization…" autocomplete="off"
+                            spellcheck="false" required>
+                        <button type="submit" class="explore-btn compact" id="header-search-submit-btn"
+                            aria-label="Explore">
+                            <span>Explore</span>
+                            <span class="btn-arrow" aria-hidden="true">→</span>
+                        </button>
                     </div>
-                    <h3>Start with a topic</h3>
-                    <p>Results and their historical context will appear here after a search.</p>
-                    <div class="empty-suggestions">
-                        <span class="suggestion-title">Suggested research topics:</span>
-                        <div class="suggestion-tags">
-                            <button type="button" class="preset-chip" data-query="Climate policy">Climate policy</button>
-                            <button type="button" class="preset-chip" data-query="Semiconductor supply chain">Semiconductor supply chain</button>
-                            <button type="button" class="preset-chip" data-query="Nuclear fusion energy">Nuclear fusion energy</button>
-                        </div>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main View Switcher Container -->
+    <main class="main-content" id="main-content">
+
+        <!-- 1. Minimal Landing Screen -->
+        <section class="landing-view" id="landing-view" aria-label="Search Landing Screen">
+            <div class="landing-hero">
+                <div class="landing-brand-mark" aria-hidden="true">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <h1 class="landing-title">News History</h1>
+                <p class="landing-subtitle">Explore how a story unfolded over time.</p>
+
+                <form class="search-form landing-search-form" id="landing-search-form" action="#" method="get"
+                    role="search">
+                    <label for="topic-search" class="visually-hidden">Search a topic, person, event, or
+                        organization</label>
+                    <div class="search-input-box landing-search-box">
+                        <span class="search-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </span>
+                        <input id="topic-search" name="topic" type="search"
+                            placeholder="Search a topic, person, event, or organization…" autocomplete="off"
+                            spellcheck="false" required>
+                        <button type="submit" class="explore-btn" id="landing-search-submit-btn">
+                            <span>Explore</span>
+                            <span class="btn-arrow" aria-hidden="true">→</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="examples-row" role="group" aria-label="Suggested search queries">
+                    <span class="examples-label">Try:</span>
+                    <button type="button" class="example-btn" data-query="OpenAI">OpenAI</button>
+                    <span class="example-sep" aria-hidden="true">·</span>
+                    <button type="button" class="example-btn" data-query="SpaceX">SpaceX</button>
+                    <span class="example-sep" aria-hidden="true">·</span>
+                    <button type="button" class="example-btn" data-query="Climate change">Climate change</button>
+                    <span class="example-sep" aria-hidden="true">·</span>
+                    <button type="button" class="example-btn" data-query="Mumbai floods">Mumbai floods</button>
+                    <span class="example-sep" aria-hidden="true">·</span>
+                    <button type="button" class="example-btn" data-query="Semiconductor industry">Semiconductor
+                        industry</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Minimalist Loading Screen -->
+        <section class="loading-view is-hidden" id="loading-view" aria-live="polite" aria-label="Search Progress">
+            <div class="loading-box">
+                <h2 class="loading-brand">News History</h2>
+                <p class="loading-status">Building the history<span class="loading-dots">...</span></p>
+                <div class="loading-pulse-track" aria-hidden="true">
+                    <span class="loading-dot"></span>
+                    <span class="loading-dot"></span>
+                    <span class="loading-dot"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Clean Research Workspace (Results View) -->
+        <section class="results-view is-hidden" id="results-view" aria-label="Research Results">
+            <div class="results-container">
+
+                <!-- Header / Story Overview -->
+                <div class="results-hero">
+                    <div class="results-meta-strip">
+                        <span class="provenance-tag timeline-tag">Chronological Timeline</span>
+                        <span class="results-stat" id="results-stat-count">Loading coverage...</span>
+                    </div>
+                    <h1 class="results-title" id="results-title-heading">History of topic</h1>
+                    <p class="results-lead" id="results-lead-text">Timeline of reported events and historical
+                        developments.</p>
+                </div>
+
+                <!-- Empty / Error Notification State -->
+                <div class="results-state-card is-hidden" id="results-state-card" aria-live="polite">
+                    <div class="state-icon" id="results-state-icon" aria-hidden="true"></div>
+                    <h3 class="state-title" id="results-state-title">No coverage found</h3>
+                    <p class="state-message" id="results-state-msg">Try searching for another topic, company, or
+                        historical event.</p>
+                    <button type="button" class="state-action-btn" id="results-state-reset-btn">Back to Search</button>
+                </div>
+
+                <!-- Main Timeline Container -->
+                <div class="timeline-wrapper" id="timeline-wrapper">
+                    <div class="timeline-header">
+                        <h2 class="timeline-section-title">Timeline</h2>
+                        <span class="timeline-provenance-note">Organized chronologically from multi-source
+                            reporting</span>
+                    </div>
+
+                    <div class="timeline-tree" id="timeline-tree" aria-live="polite">
+                        <!-- Rendered dynamically by main.js -->
                     </div>
                 </div>
 
-                <!-- Live Results List -->
-                <div class="results-list" id="results-list" aria-live="polite"></div>
-            </section>
-        </div>
+                <!-- Ask About This History (Q&A Section) -->
+                <section class="qa-section" id="qa-section" aria-labelledby="qa-title">
+                    <div class="qa-header">
+                        <h2 id="qa-title" class="qa-title">Ask about this history</h2>
+                        <p class="qa-subtitle">Ask questions about key developments, turning points, or entities in this
+                            historical record.</p>
+                    </div>
+
+                    <form class="qa-form" id="question-form">
+                        <label for="question-input" class="visually-hidden">Ask a question about this history</label>
+                        <div class="search-input-box qa-input-box">
+                            <input id="question-input" type="text"
+                                placeholder="What were the major turning points in this story?" autocomplete="off"
+                                required>
+                            <button type="submit" class="explore-btn compact" id="question-submit-btn">
+                                <span>Ask</span>
+                                <span class="btn-arrow" aria-hidden="true">→</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="qa-response-box is-hidden" id="qa-response-box" aria-live="polite">
+                        <div class="qa-response-header">
+                            <span class="provenance-tag ai-tag">AI Grounded Synthesis</span>
+                            <span class="qa-grounded-badge">Grounded in verified sources</span>
+                        </div>
+                        <p class="qa-response-text" id="qa-response-text"></p>
+                        <div class="qa-sources-wrap" id="qa-sources-wrap">
+                            <span class="qa-sources-label">Citations:</span>
+                            <div class="qa-sources-chips" id="qa-sources-chips"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AI Summary Supporting Section (Displayed after Timeline) -->
+                <section class="summary-section is-hidden" id="summary-section" aria-labelledby="summary-title">
+                    <div class="summary-header">
+                        <div class="summary-title-wrap">
+                            <span class="provenance-tag ai-tag">AI Generated</span>
+                            <h2 id="summary-title" class="summary-title">Historical Summary</h2>
+                        </div>
+                        <p class="summary-provenance-note">Synthesized overview supporting the primary timeline.</p>
+                    </div>
+                    <div class="summary-body">
+                        <p class="summary-text" id="summary-text"></p>
+                        <div class="summary-sources" id="summary-sources">
+                            <span class="sources-title">Supporting source reporting:</span>
+                            <div class="sources-chips" id="summary-sources-chips"></div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </section>
+
     </main>
 
-    <!-- Footer System Status -->
-    <footer class="system-footer">
-        <div class="system-footer-inner page-width">
-            <div class="footer-left">
-                <span class="footer-brand font-mono">NEWS_HISTORY // ARCHITECTURE</span>
-                <span class="footer-text">Clean Separation of Retrieval, Ingestion, Normalization &amp; Grounding</span>
-            </div>
-            <div class="footer-right">
-                <span class="footer-text font-mono">STATUS: OPERATIONAL</span>
-                <span class="footer-bullet">&bull;</span>
-                <span class="footer-text">GDELT DOC API 2.0</span>
-            </div>
+    <!-- Shared Subtle Footer -->
+    <footer class="site-footer" id="site-footer">
+        <div class="footer-container">
+            <span class="footer-brand">News History</span>
+            <span class="footer-sep">·</span>
+            <span class="footer-text">Event chronology &amp; source provenance</span>
         </div>
     </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
+
 </html>
