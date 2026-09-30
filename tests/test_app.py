@@ -180,6 +180,33 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.json["supporting_article_ids"], [1])
         self.assertEqual(response.json["sources"][0]["url"], article.url)
 
+    def test_api_question_verification_and_evidence_explanation(self):
+        article = Article("Single coverage story", "https://example.com/single", "Lone Publisher", "2026-09-01", "A singular story.", "mock", 10)
+        self.set_provider(StubProvider([article]))
+        self.client.post("/api/search", json={"query": "single"})
+
+        # Ask why story is flagged
+        res = self.client.post(
+            "/api/question",
+            json={"question": "Why is this story flagged for limited evidence?", "query": "single"}
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json["success"])
+        self.assertIn("flagged for limited evidence", res.json["answer"])
+        self.assertEqual(res.json["supporting_article_ids"], [1])
+        self.assertIn("sources", res.json)
+        self.assertIn("verification_signals", res.json)
+
+        # Ask how many sources
+        res2 = self.client.post(
+            "/api/question",
+            json={"question": "How many sources reported this?", "query": "single"}
+        )
+        self.assertEqual(res2.status_code, 200)
+        self.assertTrue(res2.json["success"])
+        self.assertIn("1 article(s) from 1 independent source(s)", res2.json["answer"])
+        self.assertEqual(res2.json["supporting_article_ids"], [1])
+
     def test_search_with_empty_query_returns_client_error(self):
         self.set_provider(StubProvider())
         response = self.client.post("/api/search", json={"query": "   "})

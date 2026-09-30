@@ -80,6 +80,7 @@
         const questionSubmitBtn = document.querySelector("#question-submit-btn");
         const qaResponseBox = document.querySelector("#qa-response-box");
         const qaResponseText = document.querySelector("#qa-response-text");
+        const qaWarningsWrap = document.querySelector("#qa-warnings-wrap");
         const qaSourcesChips = document.querySelector("#qa-sources-chips");
 
         const summarySection = document.querySelector("#summary-section");
@@ -847,6 +848,18 @@
             setViewState("landing");
         });
 
+        // Grounded Q&A Quick Prompt Chips
+        const promptChips = document.querySelectorAll(".qa-prompt-chip");
+        promptChips.forEach((chip) => {
+            chip.addEventListener("click", () => {
+                const prompt = chip.getAttribute("data-question");
+                if (prompt && questionInput) {
+                    questionInput.value = prompt;
+                    questionForm?.dispatchEvent(new Event("submit"));
+                }
+            });
+        });
+
         // Grounded Q&A Form Submission
         questionForm?.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -857,6 +870,10 @@
             qaResponseBox?.classList.remove("is-hidden");
             if (qaResponseText) {
                 qaResponseText.textContent = "Synthesizing grounded answer from verified sources...";
+            }
+            if (qaWarningsWrap) {
+                qaWarningsWrap.replaceChildren();
+                qaWarningsWrap.classList.add("is-hidden");
             }
             if (qaSourcesChips) qaSourcesChips.replaceChildren();
 
@@ -870,6 +887,17 @@
                 const data = await res.json();
                 if (data.success && data.answer) {
                     if (qaResponseText) qaResponseText.textContent = data.answer;
+
+                    // Render warning signals if any
+                    const warnSignals = data.verification_signals || data.warning_signals;
+                    if (qaWarningsWrap && warnSignals && warnSignals.length > 0) {
+                        const warnElement = createVerificationWarningsElement(warnSignals);
+                        if (warnElement) {
+                            qaWarningsWrap.appendChild(warnElement);
+                            qaWarningsWrap.classList.remove("is-hidden");
+                        }
+                    }
+
                     if (qaSourcesChips && data.sources && data.sources.length > 0) {
                         data.sources.forEach((s) => {
                             const chip = document.createElement("a");

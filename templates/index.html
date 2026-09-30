@@ -168,12 +168,19 @@
                         <label for="question-input" class="visually-hidden">Ask a question about this history</label>
                         <div class="search-input-box qa-input-box">
                             <input id="question-input" type="text"
-                                placeholder="What were the major turning points in this story?" autocomplete="off"
+                                placeholder="e.g. 'How many sources reported this?' or 'Are there conflicting reports?'" autocomplete="off"
                                 required>
                             <button type="submit" class="explore-btn compact" id="question-submit-btn">
                                 <span>Ask</span>
                                 <span class="btn-arrow" aria-hidden="true">→</span>
                             </button>
+                        </div>
+                        <div class="qa-quick-prompts" id="qa-quick-prompts" aria-label="Suggested verification questions">
+                            <span class="qa-quick-label">Suggested:</span>
+                            <button type="button" class="qa-prompt-chip" data-question="How many sources reported this?">How many sources reported this?</button>
+                            <button type="button" class="qa-prompt-chip" data-question="Are there conflicting reports?">Are there conflicting reports?</button>
+                            <button type="button" class="qa-prompt-chip" data-question="Why is this story flagged for limited evidence?">Why is this story flagged for limited evidence?</button>
+                            <button type="button" class="qa-prompt-chip" data-question="Which articles support this event?">Which articles support this event?</button>
                         </div>
                     </form>
 
@@ -183,6 +190,7 @@
                             <span class="qa-grounded-badge">Grounded in verified sources</span>
                         </div>
                         <p class="qa-response-text" id="qa-response-text"></p>
+                        <div class="qa-warnings-wrap is-hidden" id="qa-warnings-wrap"></div>
                         <div class="qa-sources-wrap" id="qa-sources-wrap">
                             <span class="qa-sources-label">Citations:</span>
                             <div class="qa-sources-chips" id="qa-sources-chips"></div>

@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–17 are complete (including Phase 2 Step 17: Suspicious-Content Warning Signals). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, and transparent suspicious-content warning indicators.
+Steps 1–18 are complete (including Phase 2 Step 18: Evidence-Based AI Verification). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, and evidence-based AI verification explaining reporting evidence and verification signals.
 
 ## Features
 
@@ -16,6 +16,7 @@ Steps 1–17 are complete (including Phase 2 Step 17: Suspicious-Content Warning
 - Cross-source agreement and conflict detection.
 - Expose source-quality and provenance signals without subjective credibility rankings.
 - Identify suspicious-content warning signals based on observable metadata and corroboration patterns without truth/fake value judgments.
+- Grounded AI verification explaining source evidence, corroboration, conflicts, and verification warnings.
 - Assemble a chronological timeline from publication dates.
 - Generate grounded mock summaries and question answers from available metadata.
 - Display publishers, providers, publication dates, retrieval timestamps, original URLs, and supporting sources.
@@ -223,6 +224,45 @@ Each signal is structured as a dictionary containing:
 
 - **API**: Exposed via `verification_signals` (and `warning_signals`) in `POST /api/search` at the query root, per article in `results`, per cluster in `groups`, and per event in `timeline`.
 - **Frontend**: Rendered in the timeline event cards, thematic cluster sections, and expandable article rows with clear, calm warning styling that informs users of reporting gaps without making subjective truth claims.
+
+## Evidence-based AI verification (Q&A)
+
+`QuestionAnswerService` and `ContextBuilder` allow the grounded AI layer to explain source evidence, corroboration, conflicts, and verification signals without declaring articles fake or true.
+
+The AI uses **ONLY**:
+- Retrieved article metadata and descriptions
+- Article groups and cross-source analysis
+- Timeline entries
+- Provenance information (publishers, URLs, publication dates, providers)
+- Cross-source signals (corroboration, independent source counts, conflicts)
+- Verification warnings
+
+### Grounded context extensions
+
+`ContextBuilder` automatically structures:
+- `articles`: Full article metadata with provenance and verification signals.
+- `supporting_references`: Complete source references for articles corroborating reporting.
+- `conflicting_references`: Complete source references for articles containing conflicting or disputed reporting.
+- `provenance_signals`: Aggregate collection signals.
+- `cross_source_signals`: Cross-publisher agreement and conflict signals.
+- `verification_warnings`: Transparent warning signals on metadata completeness and corroboration.
+
+### Verification questions supported
+
+Users can ask direct verification and evidence inquiries:
+- *"How many sources reported this?"*: Summarizes article counts and distinct independent publishers.
+- *"Are there conflicting reports?"*: Explains whether reports contain consistent information or conflicting claims, citing the specific reporting.
+- *"Why is this story flagged for limited evidence?"*: Explains observable warning signals (such as single-source reporting or missing publisher/date metadata).
+- *"Which articles support this event?"*: Enumerates the corroborating articles with titles and publishers.
+- General historical inquiries (*"What happened?", "What is covered?"*): Summarizes retrieved evidence while preserving existing grounded Q&A behavior.
+
+### Guardrails and principles
+
+- **Every AI answer includes supporting article IDs and source citations**: Answers cite real sources and their provenance references.
+- **Fabricated-source prevention**: Hallucinated or non-existent article IDs are strictly rejected and stripped before answers are emitted.
+- **Explicit insufficiency reporting**: If available sources do not provide sufficient information, the AI explicitly states that evidence is insufficient.
+- **No truth/fake value judgments**: The AI never claims an article is definitely fake or definitely true unless the supplied evidence explicitly establishes that fact.
+- **Zero invented data**: The AI never invents publishers, URLs, dates, people, or events.
 
 ## SQLite database
 
