@@ -970,6 +970,39 @@
                     resultsStatCount.textContent = `${eventsCount} development${eventsCount === 1 ? "" : "s"} · ${articlesCount} article${articlesCount === 1 ? "" : "s"}${provText}`;
                 }
 
+                // Provider status handling (Step 20)
+                const providerStatusBadge = document.getElementById("provider-status-badge");
+                const providerNotice = document.getElementById("provider-status-notice");
+                if (providerStatusBadge) {
+                    providerStatusBadge.classList.remove("is-hidden", "is-warning", "is-error");
+                    if (data.provider_status === "ok") {
+                        providerStatusBadge.textContent = "Live provider connected";
+                        providerStatusBadge.setAttribute("title", "Fresh news retrieved from news provider");
+                    } else if (data.provider_status === "rate_limited") {
+                        providerStatusBadge.classList.add("is-warning");
+                        providerStatusBadge.textContent = "Provider rate-limited";
+                        providerStatusBadge.setAttribute("title", data.message || "Provider rate-limited; showing stored coverage");
+                    } else if (data.provider_status === "provider_unavailable") {
+                        providerStatusBadge.classList.add("is-error");
+                        providerStatusBadge.textContent = "Provider unavailable";
+                        providerStatusBadge.setAttribute("title", data.message || "Provider unavailable; showing stored coverage");
+                    } else if (data.provider_status) {
+                        providerStatusBadge.textContent = `Provider: ${data.provider_status}`;
+                    } else {
+                        providerStatusBadge.classList.add("is-hidden");
+                    }
+                }
+
+                if (providerNotice) {
+                    if (data.message && data.provider_status !== "ok") {
+                        providerNotice.textContent = data.message;
+                        providerNotice.classList.remove("is-hidden");
+                    } else {
+                        providerNotice.classList.add("is-hidden");
+                        providerNotice.textContent = "";
+                    }
+                }
+
                 if (resultsLeadText) {
                     resultsLeadText.textContent = articlesCount > 0
                         ? `Chronological sequence reconstructed from multi-source historical reporting.`

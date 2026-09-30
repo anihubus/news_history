@@ -82,6 +82,7 @@ class SearchOrchestrator:
             return {
                 "success": False,
                 "status": retrieval.provider_status,
+                "provider_status": retrieval.provider_status,
                 "query": normalized_query,
                 "results": [],
                 "groups": enriched_groups,

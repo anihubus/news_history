@@ -891,6 +891,38 @@ input {
     color: #475569;
 }
 
+.provenance-tag.provider-status-tag {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.provenance-tag.provider-status-tag.is-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.provenance-tag.provider-status-tag.is-error {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.provider-status-notice {
+    margin: 12px 0 0 0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    background-color: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .provenance-tag.quality-complete-tag {
     background-color: #ecfdf5;
     color: #047857;

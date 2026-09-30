@@ -4,14 +4,17 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–19 are complete (including Phase 2 Step 19: Verification Dashboard and Final Integration). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
+Steps 1–20 are complete (including Step 20: Fresh Real-Time News Retrieval). The project provides a Flask application factory, a responsive News History interface, live GDELT integration and replaceable news providers, SQLite persistence, real-time news retrieval on every search, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
 
 ## Features
 
-- Search GDELT coverage or use the deterministic mock provider.
-- Store normalized article metadata in SQLite.
-- Deduplicate articles by canonical URL.
-- Combine stored and newly retrieved articles.
+- Search live GDELT coverage or use the deterministic mock provider.
+- Retrieve fresh real-time news results from providers on every user search without replacing the SQLite database.
+- Store normalized article metadata in SQLite with `retrieved_at` timestamps while preserving historical `publication_date`.
+- Deduplicate articles by canonical URL and avoid overwriting existing historical articles unnecessarily.
+- Gracefully handle provider failures and rate limits, returning stored historical articles and provider status.
+- Return provider status to the frontend with live connection indicators and status notices.
+- Combine stored historical and newly retrieved articles.
 - Detect related articles with explainable weighted keyword overlap.
 - Cross-source agreement and conflict detection.
 - Expose source-quality and provenance signals without subjective credibility rankings.

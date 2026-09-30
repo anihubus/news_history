@@ -63,7 +63,10 @@ class ArticleRepository:
                     description, source_provider, retrieved_at, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(canonical_url) DO UPDATE SET
-                    retrieved_at = excluded.retrieved_at
+                    retrieved_at = excluded.retrieved_at,
+                    description = COALESCE(description, excluded.description),
+                    publisher = COALESCE(publisher, excluded.publisher),
+                    publication_date = COALESCE(publication_date, excluded.publication_date)
                 """,
                 (
                     article.title,
