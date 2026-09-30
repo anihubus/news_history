@@ -1,188 +1,482 @@
+/**
+ * News History — Minimal Editorial Frontend
+ * Handles landing, serene loading, chronological timeline tree, article expansion,
+ * grounded Q&A, provenance tracking, and cross-source verification signals.
+ */
 (() => {
-    // Utility to format raw provider timestamps (e.g. 20260918090000 or 20260918 or ISO)
-    const formatTimestamp = (raw) => {
-        if (!raw) return "Publication date unavailable";
-        const str = String(raw).trim();
-        if (/^\d{14}$/.test(str)) {
-            const year = str.slice(0, 4);
-            const month = str.slice(4, 6);
-            const day = str.slice(6, 8);
-            const hour = str.slice(8, 10);
-            const min = str.slice(10, 12);
-            return `${year}-${month}-${day} ${hour}:${min} UTC`;
+    "use strict";
+
+    // Date formatting helper for GDELT / ISO / YYYYMMDD timestamps
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    const formatDisplayDate = (rawDate) => {
+        if (!rawDate) return "Date not specified";
+        const str = String(rawDate).trim();
+
+        // Format: YYYYMMDDHHMMSS or YYYYMMDD
+        if (/^\d{8,14}$/.test(str)) {
+            const year = parseInt(str.slice(0, 4), 10);
+            const monthIdx = parseInt(str.slice(4, 6), 10) - 1;
+            const day = parseInt(str.slice(6, 8), 10);
+            if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31) {
+                return `${MONTHS[monthIdx]} ${day}, ${year}`;
+            }
+            return `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 8)}`;
         }
-        if (/^\d{8}$/.test(str)) {
-            const year = str.slice(0, 4);
-            const month = str.slice(4, 6);
-            const day = str.slice(6, 8);
-            return `${year}-${month}-${day}`;
+
+        // Format: YYYY-MM-DD or ISO
+        const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            const year = parseInt(isoMatch[1], 10);
+            const monthIdx = parseInt(isoMatch[2], 10) - 1;
+            const day = parseInt(isoMatch[3], 10);
+            if (monthIdx >= 0 && monthIdx < 12) {
+                return `${MONTHS[monthIdx]} ${day}, ${year}`;
+            }
+            return isoMatch[0];
         }
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str)) {
-            const datePart = str.slice(0, 10);
-            const timePart = str.slice(11, 16);
-            return `${datePart} ${timePart} UTC`;
-        }
+
         return str;
     };
 
-    // Live UTC Clock
-    const initLiveClock = () => {
-        const clockEl = document.querySelector("#live-clock");
-        if (!clockEl) return;
-        const update = () => {
-            const now = new Date();
-            const utc = now.toUTCString().split(" ")[4];
-            clockEl.textContent = utc ? `${utc} UTC` : now.toISOString().slice(11, 19) + " UTC";
-        };
-        update();
-        setInterval(update, 1000);
+    const extractYear = (rawDate) => {
+        if (!rawDate) return "Undated";
+        const str = String(rawDate).trim();
+        const match = str.match(/^(\d{4})/);
+        return match ? match[1] : "Undated";
     };
 
-    const initializeSearch = () => {
-        const searchForm = document.querySelector("#search-form");
-        const searchInput = document.querySelector("#topic-search");
-        const searchButton = searchForm?.querySelector("button[type='submit']");
-        const searchStatus = document.querySelector("#search-status");
-        const searchStatusDot = document.querySelector("#search-status-dot");
-        const progressBar = document.querySelector("#system-progress");
-        const clearBtn = document.querySelector("#clear-search-btn");
-        const resultsCountAll = document.querySelectorAll(".results-count");
-        const emptyState = document.querySelector(".results-empty");
-        const resultsList = document.querySelector("#results-list");
+    const initializeApp = () => {
+        // Elements
+        const siteHeader = document.querySelector("#site-header");
+        const headerBrand = document.querySelector("#header-brand");
+        const headerSearchWrap = document.querySelector("#header-search-wrap");
+        const headerSearchForm = document.querySelector("#header-search-form");
+        const headerSearchInput = document.querySelector("#header-topic-search");
+
+        const landingView = document.querySelector("#landing-view");
+        const landingSearchForm = document.querySelector("#landing-search-form");
+        const landingSearchInput = document.querySelector("#topic-search");
+
+        const loadingView = document.querySelector("#loading-view");
+
+        const resultsView = document.querySelector("#results-view");
+        const resultsTitleHeading = document.querySelector("#results-title-heading");
+        const resultsStatCount = document.querySelector("#results-stat-count");
+        const resultsLeadText = document.querySelector("#results-lead-text");
+
+        const resultsStateCard = document.querySelector("#results-state-card");
+        const resultsStateTitle = document.querySelector("#results-state-title");
+        const resultsStateMsg = document.querySelector("#results-state-msg");
+        const resultsStateResetBtn = document.querySelector("#results-state-reset-btn");
+
+        const timelineWrapper = document.querySelector("#timeline-wrapper");
+        const timelineTree = document.querySelector("#timeline-tree");
         const groupsList = document.querySelector("#groups-list");
-        const timelineList = document.querySelector("#timeline-list");
-        const timelineEmpty = document.querySelector("#timeline-empty");
-        const timelineEmptyCard = document.querySelector("#timeline-empty-card");
-        const summaryContent = document.querySelector("#summary-content");
+
+        const qaSection = document.querySelector("#qa-section");
         const questionForm = document.querySelector("#question-form");
         const questionInput = document.querySelector("#question-input");
-        const questionStatus = document.querySelector("#question-status");
-        const btnSpinner = searchButton?.querySelector(".btn-spinner");
+        const questionSubmitBtn = document.querySelector("#question-submit-btn");
+        const qaResponseBox = document.querySelector("#qa-response-box");
+        const qaResponseText = document.querySelector("#qa-response-text");
+        const qaSourcesChips = document.querySelector("#qa-sources-chips");
 
-        let activeQuery = "";
-        let requestInProgress = false;
-        const rateLimitMessage = "The news provider is temporarily rate-limited. Please wait a few seconds and try again.";
-        const providerErrorMessage = "The news provider is temporarily unavailable.";
+        const summarySection = document.querySelector("#summary-section");
+        const summaryText = document.querySelector("#summary-text");
+        const summarySourcesChips = document.querySelector("#summary-sources-chips");
 
-        if (!searchForm || !searchInput || !searchStatus || !resultsList) {
-            return;
-        }
+        let currentQuery = "";
+        let isSearching = false;
 
-        initLiveClock();
+        // View State Switcher: 'landing' | 'loading' | 'results'
+        const setViewState = (state) => {
+            if (state === "landing") {
+                landingView?.classList.remove("is-hidden");
+                loadingView?.classList.add("is-hidden");
+                resultsView?.classList.add("is-hidden");
 
-        // View Tabs switching
-        const viewTabs = document.querySelectorAll(".view-tabs .tab-btn");
-        const timelineContainer = document.querySelector("#timeline-view-container");
-        const sourcesContainer = document.querySelector("#sources-view-container");
+                siteHeader?.classList.remove("has-border");
+                headerSearchWrap?.classList.add("is-hidden");
 
-        viewTabs.forEach((tab) => {
-            tab.addEventListener("click", () => {
-                viewTabs.forEach((t) => {
-                    t.classList.remove("is-active");
-                    t.setAttribute("aria-selected", "false");
-                });
-                tab.classList.add("is-active");
-                tab.setAttribute("aria-selected", "true");
+                if (landingSearchInput) {
+                    landingSearchInput.value = "";
+                    setTimeout(() => landingSearchInput.focus(), 50);
+                }
+            } else if (state === "loading") {
+                landingView?.classList.add("is-hidden");
+                loadingView?.classList.remove("is-hidden");
+                resultsView?.classList.add("is-hidden");
 
-                const view = tab.dataset.view;
-                if (view === "all") {
-                    timelineContainer?.classList.remove("is-hidden");
-                    sourcesContainer?.classList.remove("is-hidden");
-                } else if (view === "timeline") {
-                    timelineContainer?.classList.remove("is-hidden");
-                    sourcesContainer?.classList.add("is-hidden");
-                } else if (view === "sources") {
-                    timelineContainer?.classList.add("is-hidden");
-                    sourcesContainer?.classList.remove("is-hidden");
+                siteHeader?.classList.remove("has-border");
+                headerSearchWrap?.classList.add("is-hidden");
+            } else if (state === "results") {
+                landingView?.classList.add("is-hidden");
+                loadingView?.classList.add("is-hidden");
+                resultsView?.classList.remove("is-hidden");
+
+                siteHeader?.classList.add("has-border");
+                headerSearchWrap?.classList.remove("is-hidden");
+
+                if (headerSearchInput) {
+                    headerSearchInput.value = currentQuery;
+                }
+            }
+        };
+
+        // Render Empty or Error State in Results View
+        const showResultErrorState = (title, message) => {
+            timelineWrapper?.classList.add("is-hidden");
+            qaSection?.classList.add("is-hidden");
+            summarySection?.classList.add("is-hidden");
+
+            if (resultsStateCard) {
+                resultsStateCard.classList.remove("is-hidden");
+                if (resultsStateTitle) resultsStateTitle.textContent = title;
+                if (resultsStateMsg) resultsStateMsg.textContent = message;
+            }
+
+            if (resultsStatCount) {
+                resultsStatCount.textContent = "0 developments";
+            }
+        };
+
+        // Helper to construct cross-source signals element
+        const createCrossSourceSignalsElement = (signals) => {
+            if (!signals || signals.length === 0) return null;
+
+            const signalsSection = document.createElement("div");
+            signalsSection.className = "cross-source-signals";
+
+            const signalTitle = document.createElement("p");
+            signalTitle.className = "cross-source-title";
+            signalTitle.textContent = "Cross-source signals";
+            signalsSection.append(signalTitle);
+
+            const signalsList = document.createElement("ul");
+            signalsList.className = "cross-source-list";
+
+            signals.forEach((sig) => {
+                const li = document.createElement("li");
+                li.className = "cross-source-item";
+
+                let iconText = "";
+                let iconClass = "";
+                let labelText = "";
+
+                if (sig.signal === "supporting_reports") {
+                    iconText = "✓";
+                    iconClass = "cross-source-icon-success";
+                    labelText = "Reported by multiple sources";
+                } else if (sig.signal === "conflicting_reports") {
+                    iconText = "⚠";
+                    iconClass = "cross-source-icon-warning";
+                    labelText = "Reports contain differing information";
+                } else if (sig.signal === "insufficient_cross_source_evidence") {
+                    iconText = "⚠";
+                    iconClass = "cross-source-icon-warning";
+                    labelText = "Limited independent reporting available";
+                } else if (sig.signal === "same_story") {
+                    iconText = "ℹ";
+                    iconClass = "cross-source-icon-info";
+                    labelText = "Multiple outlets syndicating same story";
+                }
+
+                if (labelText) {
+                    const iconSpan = document.createElement("span");
+                    iconSpan.className = `cross-source-icon ${iconClass}`;
+                    iconSpan.setAttribute("aria-hidden", "true");
+                    iconSpan.textContent = iconText;
+
+                    const textSpan = document.createElement("span");
+                    textSpan.textContent = labelText;
+
+                    li.append(iconSpan, textSpan);
+                    signalsList.append(li);
                 }
             });
-        });
 
-        // Clear button handling
-        const updateClearBtn = () => {
-            if (clearBtn) {
-                clearBtn.classList.toggle("is-hidden", !searchInput.value);
+            if (signalsList.children.length > 0) {
+                signalsSection.append(signalsList);
+                return signalsSection;
             }
-        };
-        searchInput.addEventListener("input", updateClearBtn);
-        clearBtn?.addEventListener("click", () => {
-            searchInput.value = "";
-            updateClearBtn();
-            searchInput.focus();
-        });
-
-        // Quick topic preset buttons
-        document.querySelectorAll(".preset-chip").forEach((chip) => {
-            chip.addEventListener("click", () => {
-                const query = chip.dataset.query;
-                if (!query) return;
-                searchInput.value = query;
-                updateClearBtn();
-                if (typeof searchForm.requestSubmit === "function") {
-                    searchForm.requestSubmit();
-                } else {
-                    searchButton?.click();
-                }
-            });
-        });
-
-        // Keyboard Shortcut: Cmd+K or / to focus search
-        window.addEventListener("keydown", (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-                e.preventDefault();
-                searchInput.focus();
-                searchInput.select();
-            } else if (e.key === "/" && document.activeElement !== searchInput && document.activeElement !== questionInput) {
-                e.preventDefault();
-                searchInput.focus();
-                searchInput.select();
-            }
-        });
-
-        const updateResultsCount = (text) => {
-            resultsCountAll.forEach((el) => {
-                el.textContent = text;
-            });
+            return null;
         };
 
-        const showEmptyState = (heading, message, count = "No results yet") => {
-            emptyState?.classList.remove("is-hidden");
-            const emptyHeading = emptyState?.querySelector("h3");
-            const emptyMessage = emptyState?.querySelector("p");
+        // Render Timeline with Chronological Year Markers, Cross-Source Signals, and Expandable Developments
+        const renderTimeline = (timelineData, allArticles, groupsData = []) => {
+            if (!timelineTree) return;
+            timelineTree.replaceChildren();
 
-            if (emptyHeading) {
-                emptyHeading.textContent = heading;
-            }
-            if (emptyMessage) {
-                emptyMessage.textContent = message;
-            }
-            updateResultsCount(count);
-        };
-
-        const clearResults = () => {
-            resultsList.replaceChildren();
-            groupsList?.replaceChildren();
-            timelineList?.replaceChildren();
-            if (summaryContent) {
-                summaryContent.textContent = "A summary will appear after a search.";
-            }
-            if (timelineEmpty) {
-                timelineEmpty.textContent = "Timeline entries will appear after a search.";
-                timelineEmpty.classList.remove("is-hidden");
-            }
-            if (timelineEmptyCard) {
-                timelineEmptyCard.classList.remove("is-hidden");
-            }
-            emptyState?.classList.add("is-hidden");
-        };
-
-        const renderGroups = (groups) => {
-            if (!groupsList) {
+            if (!timelineData || timelineData.length === 0) {
+                showResultErrorState(
+                    "No timeline events assembled",
+                    "No chronological events could be assembled from the available news sources."
+                );
                 return;
             }
+
+            timelineWrapper?.classList.remove("is-hidden");
+            resultsStateCard?.classList.add("is-hidden");
+
+            // Build article lookup map
+            const articlesById = {};
+            (allArticles || []).forEach((art) => {
+                if (art.article_id !== undefined && art.article_id !== null) {
+                    articlesById[art.article_id] = art;
+                }
+            });
+
+            // Build group lookup map for cross-source signals and group metadata
+            const groupsById = {};
+            (groupsData || []).forEach((grp) => {
+                if (grp.group_id !== undefined && grp.group_id !== null) {
+                    groupsById[String(grp.group_id)] = grp;
+                }
+            });
+
+            // Group timeline entries by Year
+            const entriesByYear = new Map();
+            timelineData.forEach((entry) => {
+                const year = extractYear(entry.date);
+                if (!entriesByYear.has(year)) {
+                    entriesByYear.set(year, []);
+                }
+                entriesByYear.get(year).push(entry);
+            });
+
+            // Render each year section
+            entriesByYear.forEach((entries, year) => {
+                const yearSection = document.createElement("div");
+                yearSection.className = "timeline-year-section";
+
+                const yearMarker = document.createElement("div");
+                yearMarker.className = "timeline-year-marker";
+                yearMarker.textContent = year;
+                yearSection.appendChild(yearMarker);
+
+                const eventsContainer = document.createElement("div");
+                eventsContainer.className = "timeline-events-container";
+
+                entries.forEach((entry) => {
+                    const node = document.createElement("div");
+                    node.className = "timeline-node";
+
+                    // Spine pin
+                    const pin = document.createElement("div");
+                    pin.className = "timeline-node-pin";
+                    pin.setAttribute("aria-hidden", "true");
+
+                    // Card body
+                    const card = document.createElement("div");
+                    card.className = "timeline-node-card";
+
+                    // Card top meta
+                    const topRow = document.createElement("div");
+                    topRow.className = "timeline-node-top";
+
+                    const dateEl = document.createElement("time");
+                    dateEl.className = "timeline-node-date";
+                    dateEl.textContent = formatDisplayDate(entry.date);
+
+                    // Provenance badge
+                    const isGrouped = Boolean(entry.group_id) || (entry.article_ids && entry.article_ids.length > 1);
+                    const provTag = document.createElement("span");
+                    provTag.className = isGrouped ? "provenance-tag grouped-tag" : "provenance-tag source-tag";
+                    provTag.textContent = isGrouped
+                        ? `Grouped (${entry.article_ids.length} articles)`
+                        : "Direct Source";
+
+                    topRow.append(dateEl, provTag);
+
+                    // Event Title
+                    const titleEl = document.createElement("h3");
+                    titleEl.className = "timeline-node-title";
+                    titleEl.textContent = entry.title;
+
+                    // Event Description
+                    const descEl = document.createElement("p");
+                    descEl.className = "timeline-node-desc";
+                    descEl.textContent = entry.description || "Reported event assembled from news coverage.";
+
+                    // Cross-source signals (from main branch functionality)
+                    const associatedGroup = entry.group_id ? groupsById[String(entry.group_id)] : null;
+                    const signals = associatedGroup?.cross_source_signals || entry.cross_source_signals || [];
+                    const signalsElement = createCrossSourceSignalsElement(signals);
+
+                    // Card Footer / Disclosure Controls
+                    const footerRow = document.createElement("div");
+                    footerRow.className = "timeline-node-footer";
+
+                    // Resolve supporting articles metadata
+                    const supportingSources = entry.supporting_sources || [];
+                    const supportingArticles = entry.supporting_articles || [];
+                    const articleCount = entry.article_ids?.length || Math.max(supportingSources.length, supportingArticles.length, 1);
+
+                    const expandBtn = document.createElement("button");
+                    expandBtn.type = "button";
+                    expandBtn.className = "timeline-expand-btn";
+                    expandBtn.setAttribute("aria-expanded", "false");
+                    expandBtn.innerHTML = `
+                        <span class="expand-text">View ${articleCount} source article${articleCount === 1 ? "" : "s"}</span>
+                        <span class="expand-chevron" aria-hidden="true">▼</span>
+                    `;
+
+                    // Unique publisher names for quick summary
+                    const publishersSet = new Set();
+                    supportingSources.forEach((s) => { if (s.publisher) publishersSet.add(s.publisher); });
+                    (entry.article_ids || []).forEach((id) => {
+                        if (articlesById[id]?.publisher) publishersSet.add(articlesById[id].publisher);
+                    });
+                    const publisherText = publishersSet.size > 0
+                        ? Array.from(publishersSet).slice(0, 3).join(", ") + (publishersSet.size > 3 ? " & more" : "")
+                        : "External sources";
+
+                    const pubInfo = document.createElement("span");
+                    pubInfo.className = "timeline-source-publishers";
+                    pubInfo.textContent = `Via ${publisherText}`;
+
+                    footerRow.append(expandBtn, pubInfo);
+
+                    // Expandable Articles Drawer
+                    const drawer = document.createElement("div");
+                    drawer.className = "timeline-articles-drawer is-hidden";
+
+                    // Collect all article records for this entry
+                    const detailedArticles = [];
+                    if (supportingSources.length > 0) {
+                        supportingSources.forEach((s) => detailedArticles.push(s));
+                    } else if (entry.article_ids && entry.article_ids.length > 0) {
+                        entry.article_ids.forEach((id) => {
+                            if (articlesById[id]) detailedArticles.push(articlesById[id]);
+                        });
+                    } else if (supportingArticles.length > 0) {
+                        supportingArticles.forEach((s) => detailedArticles.push(s));
+                    }
+
+                    if (detailedArticles.length === 0) {
+                        const fallbackRow = document.createElement("div");
+                        fallbackRow.className = "supporting-article-row";
+                        fallbackRow.textContent = "Detailed article citation is preserved in repository.";
+                        drawer.appendChild(fallbackRow);
+                    } else {
+                        detailedArticles.forEach((art) => {
+                            const artRow = document.createElement("article");
+                            artRow.className = "supporting-article-row";
+
+                            const metaDiv = document.createElement("div");
+                            metaDiv.className = "supporting-article-meta";
+
+                            const pubSpan = document.createElement("span");
+                            pubSpan.className = "article-publisher";
+                            pubSpan.textContent = art.publisher || "Publisher";
+
+                            const dateSpan = document.createElement("time");
+                            dateSpan.textContent = formatDisplayDate(art.publication_date);
+
+                            const srcBadge = document.createElement("span");
+                            srcBadge.className = "provenance-tag source-tag";
+                            srcBadge.textContent = "Source";
+
+                            metaDiv.append(pubSpan, dateSpan, srcBadge);
+
+                            const headline = document.createElement("h4");
+                            headline.className = "supporting-article-headline";
+
+                            if (art.url) {
+                                const link = document.createElement("a");
+                                link.href = art.url;
+                                link.target = "_blank";
+                                link.rel = "noopener noreferrer";
+                                link.innerHTML = `${escapeHtml(art.title || "Read article")} <span class="external-icon" aria-hidden="true">↗</span>`;
+                                headline.appendChild(link);
+                            } else {
+                                headline.textContent = art.title || "Untitled article";
+                            }
+
+                            artRow.appendChild(metaDiv);
+                            artRow.appendChild(headline);
+
+                            if (art.description) {
+                                const snippet = document.createElement("p");
+                                snippet.className = "supporting-article-snippet";
+                                snippet.textContent = art.description;
+                                artRow.appendChild(snippet);
+                            }
+
+                            drawer.appendChild(artRow);
+                        });
+                    }
+
+                    // Toggle drawer interaction
+                    expandBtn.addEventListener("click", () => {
+                        const isOpen = !drawer.classList.contains("is-hidden");
+                        drawer.classList.toggle("is-hidden", isOpen);
+                        expandBtn.classList.toggle("is-open", !isOpen);
+                        expandBtn.setAttribute("aria-expanded", String(!isOpen));
+                        const btnText = expandBtn.querySelector(".expand-text");
+                        if (btnText) {
+                            btnText.textContent = !isOpen
+                                ? `Hide ${articleCount} source article${articleCount === 1 ? "" : "s"}`
+                                : `View ${articleCount} source article${articleCount === 1 ? "" : "s"}`;
+                        }
+                    });
+
+                    card.append(topRow, titleEl, descEl);
+                    if (signalsElement) {
+                        card.append(signalsElement);
+                    }
+                    card.append(footerRow, drawer);
+
+                    node.append(pin, card);
+                    eventsContainer.appendChild(node);
+                });
+
+                yearSection.appendChild(eventsContainer);
+                timelineTree.appendChild(yearSection);
+            });
+        };
+
+        // Render AI Summary Supporting Section (below timeline)
+        const renderSummary = (summaryData) => {
+            if (!summarySection || !summaryText || !summarySourcesChips) return;
+
+            if (!summaryData || !summaryData.summary) {
+                summarySection.classList.add("is-hidden");
+                return;
+            }
+
+            summarySection.classList.remove("is-hidden");
+            summaryText.textContent = summaryData.summary;
+
+            summarySourcesChips.replaceChildren();
+            const sources = summaryData.sources || [];
+            if (sources.length > 0) {
+                sources.forEach((s) => {
+                    const chip = document.createElement("a");
+                    chip.className = "source-chip";
+                    chip.textContent = s.publisher || s.title || "Source";
+                    if (s.url) {
+                        chip.href = s.url;
+                        chip.target = "_blank";
+                        chip.rel = "noopener noreferrer";
+                    }
+                    summarySourcesChips.appendChild(chip);
+                });
+            } else {
+                const noChip = document.createElement("span");
+                noChip.className = "source-chip";
+                noChip.textContent = "Verified timeline reporting";
+                summarySourcesChips.appendChild(noChip);
+            }
+        };
+
+        // Backward-compatible renderGroups helper (if #groups-list exists)
+        const renderLegacyGroups = (groups) => {
+            if (!groupsList) return;
             groupsList.replaceChildren();
 
-            const multiArticleGroups = groups.filter((group) => group.article_count > 1);
+            const multiArticleGroups = (groups || []).filter((group) => group.article_count > 1);
             if (multiArticleGroups.length === 0) {
                 const emptyWrap = document.createElement("div");
                 emptyWrap.className = "groups-empty-placeholder";
@@ -205,34 +499,7 @@
                 note.className = "group-note";
                 note.textContent = `THEMATIC CLUSTER: ${group.article_count} articles grouped on content similarity`;
 
-                const signalsSection = document.createElement("div");
-                if (group.cross_source_signals && group.cross_source_signals.length > 0) {
-                    signalsSection.className = "cross-source-signals";
-                    const signalTitle = document.createElement("p");
-                    signalTitle.className = "eyebrow";
-                    signalTitle.style.marginTop = "10px";
-                    signalTitle.textContent = "Cross-source signals";
-                    signalsSection.append(signalTitle);
-
-                    const signalsList = document.createElement("ul");
-                    signalsList.style.listStyleType = "none";
-                    signalsList.style.paddingLeft = "0";
-                    signalsList.style.marginTop = "4px";
-
-                    group.cross_source_signals.forEach(sig => {
-                        const li = document.createElement("li");
-                        li.style.fontSize = "0.85rem";
-                        if (sig.signal === "supporting_reports") li.textContent = "✓ Reported by multiple sources";
-                        else if (sig.signal === "conflicting_reports") li.textContent = "⚠ Reports contain differing information";
-                        else if (sig.signal === "insufficient_cross_source_evidence") li.textContent = "⚠ Limited independent reporting available";
-                        else if (sig.signal === "same_story") li.textContent = "ℹ Multiple outlets syndicating same story";
-                        
-                        if (li.textContent) signalsList.append(li);
-                    });
-                    if (signalsList.childNodes.length > 0) {
-                        signalsSection.append(signalsList);
-                    }
-                }
+                const signalsSection = createCrossSourceSignalsElement(group.cross_source_signals);
 
                 const sources = document.createElement("p");
                 sources.className = "provenance-sources";
@@ -251,274 +518,226 @@
                     sources.append(link);
                 });
 
-                section.append(heading, note, signalsSection, sources);
+                section.append(heading, note);
+                if (signalsSection) section.append(signalsSection);
+                section.append(sources);
                 groupsList.append(section);
             });
         };
 
-        const renderTimeline = (timeline) => {
-            if (!timelineList || !timelineEmpty) {
-                return;
-            }
-            timelineList.replaceChildren();
-            const hasEntries = timeline.length > 0;
-            timelineEmpty.classList.toggle("is-hidden", hasEntries);
-            if (timelineEmptyCard) {
-                timelineEmptyCard.classList.toggle("is-hidden", hasEntries);
-            }
-
-            if (!hasEntries) {
-                timelineEmpty.textContent = "No timeline entries could be assembled from these results.";
-                return;
-            }
-
-            timeline.forEach((entry) => {
-                const item = document.createElement("article");
-                item.className = "timeline-entry";
-
-                const date = document.createElement("time");
-                date.className = "timeline-date font-mono";
-                date.textContent = formatTimestamp(entry.date);
-
-                const content = document.createElement("div");
-                const title = document.createElement("h3");
-                title.textContent = entry.title;
-                const description = document.createElement("p");
-                description.textContent = entry.description || "Automatically assembled from available article metadata.";
-                const sourceNote = document.createElement("p");
-                sourceNote.className = "timeline-source-note";
-                sourceNote.textContent = `${entry.article_ids.length} supporting article${entry.article_ids.length === 1 ? "" : "s"}`;
-                const sources = document.createElement("p");
-                sources.className = "timeline-sources";
-                const supportingSources = entry.supporting_sources || entry.supporting_articles || [];
-                sources.textContent = "Supporting sources: ";
-                supportingSources.forEach((article, index) => {
-                    const link = document.createElement("a");
-                    link.href = article.url;
-                    link.target = "_blank";
-                    link.rel = "noopener noreferrer";
-                    link.textContent = article.publisher || `Source ${index + 1}`;
-                    sources.append(link);
-                });
-                content.append(title, description, sourceNote, sources);
-                item.append(date, content);
-                timelineList.append(item);
-            });
+        // Escape HTML helper
+        const escapeHtml = (text) => {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
         };
 
-        const renderSummary = (summary) => {
-            if (!summaryContent) {
-                return;
-            }
-            summaryContent.replaceChildren();
-            if (!summary?.summary) {
-                summaryContent.textContent = "Summary temporarily unavailable.";
-                return;
-            }
-            summaryContent.textContent = summary.summary;
-            const sources = document.createElement("p");
-            sources.className = "provenance-sources";
-            sources.textContent = "Supporting sources: ";
-            (summary.sources || []).forEach((source, index) => {
-                const link = document.createElement("a");
-                link.textContent = source.url
-                    ? (source.publisher || source.title || `Source ${index + 1}`)
-                    : "Original source unavailable";
-                if (source.url) {
-                    link.href = source.url;
-                    link.target = "_blank";
-                    link.rel = "noopener noreferrer";
-                }
-                sources.append(link);
-            });
-            summaryContent.append(sources);
-        };
+        // Primary Search Execution Function
+        const performSearch = async (query) => {
+            const trimmed = (query || "").trim();
+            if (!trimmed || isSearching) return;
 
-        const createArticleCard = (article) => {
-            const card = document.createElement("article");
-            card.className = "article-card";
+            isSearching = true;
+            currentQuery = trimmed;
 
-            const source = document.createElement("p");
-            source.className = "article-source";
-            source.textContent = `${article.publisher || "Publisher unavailable"} · Source provider: ${article.source_provider || "Unavailable"}`;
+            // Sync inputs
+            if (landingSearchInput) landingSearchInput.value = trimmed;
+            if (headerSearchInput) headerSearchInput.value = trimmed;
 
-            const title = document.createElement("h3");
-            const link = document.createElement("a");
-            link.href = article.url;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            link.textContent = article.title;
-            title.append(link);
+            // Update URL query parameter
+            const url = new URL(window.location);
+            url.searchParams.set("topic", trimmed);
+            window.history.pushState({ topic: trimmed }, "", url);
 
-            const date = document.createElement("p");
-            date.className = "article-date";
-            date.textContent = formatTimestamp(article.publication_date);
+            // Switch to serene loading view
+            setViewState("loading");
 
-            const originalSource = document.createElement("a");
-            originalSource.className = "original-source";
-            originalSource.textContent = article.url ? "Original source ↗" : "Original source unavailable";
-            if (article.url) {
-                originalSource.href = article.url;
-                originalSource.target = "_blank";
-                originalSource.rel = "noopener noreferrer";
-            }
-
-            const retrieved = document.createElement("p");
-            retrieved.className = "article-retrieved";
-            retrieved.textContent = article.retrieved_at
-                ? `Retrieved by News History: ${formatTimestamp(article.retrieved_at)}`
-                : "Retrieval time unavailable";
-
-            card.append(source, title, date, originalSource, retrieved);
-            return card;
-        };
-
-        const renderResults = (articles) => {
-            clearResults();
-            articles.forEach((article) => resultsList.append(createArticleCard(article)));
-            updateResultsCount(`${articles.length} article${articles.length === 1 ? "" : "s"} indexed`);
-        };
-
-        const setLoadingState = (isLoading) => {
-            if (isLoading) {
-                searchButton?.setAttribute("disabled", "disabled");
-                btnSpinner?.classList.remove("is-hidden");
-                progressBar?.classList.add("is-active");
-                if (searchStatusDot) {
-                    searchStatusDot.className = "status-indicator-dot dot-searching";
-                }
-            } else {
-                searchButton?.removeAttribute("disabled");
-                btnSpinner?.classList.add("is-hidden");
-                progressBar?.classList.remove("is-active");
-                if (searchStatusDot) {
-                    searchStatusDot.className = "status-indicator-dot dot-idle";
-                }
-            }
-        };
-
-        searchForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-
-            if (requestInProgress) {
-                return;
-            }
-
-            const query = searchInput.value.trim();
-            if (!query) {
-                searchStatus.textContent = "Enter a topic before searching.";
-                searchInput.focus();
-                return;
-            }
-
-            requestInProgress = true;
-            activeQuery = query;
-            searchStatus.textContent = "Searching index and reconstructing chronology...";
-            setLoadingState(true);
+            // Reset Q&A input and response
+            if (questionInput) questionInput.value = "";
+            qaResponseBox?.classList.add("is-hidden");
 
             try {
-                const currentUrl = new URL(window.location);
-                currentUrl.searchParams.set("topic", query);
-                window.history.replaceState({}, "", currentUrl);
-
                 const response = await fetch("/api/search", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query }),
+                    body: JSON.stringify({ query: trimmed })
                 });
+
                 const data = await response.json();
 
                 if (!response.ok || !data.success) {
-                    if (response.status === 429 || data.status === "rate_limited") {
-                        throw new Error(rateLimitMessage);
-                    }
-                    throw new Error(providerErrorMessage);
+                    setViewState("results");
+                    if (resultsTitleHeading) resultsTitleHeading.textContent = `History of "${trimmed}"`;
+                    if (resultsLeadText) resultsLeadText.textContent = "Query could not be completed.";
+
+                    const errorMsg = response.status === 429 || data.status === "rate_limited"
+                        ? "The news provider is temporarily rate-limited. Please wait a few seconds and try again."
+                        : (data.error || "The news provider is temporarily unavailable.");
+
+                    showResultErrorState("Search unavailable", errorMsg);
+                    return;
                 }
 
-                if (data.results.length === 0) {
-                    showEmptyState(
-                        "No articles found",
-                        "No matching coverage was returned for this search.",
-                        "0 results"
-                    );
-                    resultsList.replaceChildren();
-                    groupsList?.replaceChildren();
-                    renderTimeline([]);
-                    renderSummary(null);
-                    searchStatus.textContent = "No articles were returned by the provider.";
-                    if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-idle";
-                } else {
-                    renderResults(data.results);
-                    renderGroups(data.groups || []);
-                    renderTimeline(data.timeline || []);
-                    renderSummary(data.summary);
-                    searchStatus.textContent = data.provider_status === "rate_limited"
-                        ? `${data.results.length} stored articles found. The provider is temporarily rate-limited.`
-                        : data.provider_status === "provider_unavailable"
-                            ? `${data.results.length} stored articles found. The provider is temporarily unavailable.`
-                            : `${data.results.length} articles indexed and aligned to chronological timeline.`;
-                    if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-online";
+                // Switch to results view
+                setViewState("results");
+
+                // Update headings
+                if (resultsTitleHeading) resultsTitleHeading.textContent = `History of "${trimmed}"`;
+                const articlesCount = (data.results || []).length;
+                const eventsCount = (data.timeline || []).length;
+
+                if (resultsStatCount) {
+                    resultsStatCount.textContent = `${eventsCount} development${eventsCount === 1 ? "" : "s"} · ${articlesCount} article${articlesCount === 1 ? "" : "s"}`;
                 }
-            } catch (error) {
-                showEmptyState("Search unavailable", "Try again when the news provider is available.");
-                resultsList.replaceChildren();
-                groupsList?.replaceChildren();
-                renderSummary(null);
-                searchStatus.textContent = error.message === rateLimitMessage
-                    ? rateLimitMessage
-                    : providerErrorMessage;
-                if (searchStatusDot) searchStatusDot.className = "status-indicator-dot dot-error";
+
+                if (resultsLeadText) {
+                    resultsLeadText.textContent = articlesCount > 0
+                        ? `Chronological sequence reconstructed from multi-source historical reporting.`
+                        : `No historical coverage was found for "${trimmed}".`;
+                }
+
+                if (articlesCount === 0 || eventsCount === 0) {
+                    showResultErrorState(
+                        "No coverage found",
+                        `No articles were returned by news providers for "${trimmed}". Try searching another topic, person, or organization.`
+                    );
+                    renderSummary(null);
+                    return;
+                }
+
+                // Render Timeline, Cross-Source Signals, Legacy Clusters, and Summary
+                renderTimeline(data.timeline || [], data.results || [], data.groups || []);
+                renderLegacyGroups(data.groups || []);
+                renderSummary(data.summary);
+                qaSection?.classList.remove("is-hidden");
+
+            } catch (err) {
+                setViewState("results");
+                if (resultsTitleHeading) resultsTitleHeading.textContent = `History of "${trimmed}"`;
+                showResultErrorState(
+                    "Connection issue",
+                    "Unable to reach the News History server. Please check your connection and try again."
+                );
             } finally {
-                requestInProgress = false;
-                setLoadingState(false);
+                isSearching = false;
             }
+        };
+
+        // Event Handlers: Landing Search Form
+        landingSearchForm?.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const val = landingSearchInput?.value;
+            if (val) performSearch(val);
         });
 
-        questionForm?.addEventListener("submit", async (event) => {
-            event.preventDefault();
+        // Event Handlers: Header Search Form
+        headerSearchForm?.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const val = headerSearchInput?.value;
+            if (val) performSearch(val);
+        });
+
+        // Example Query Chips
+        document.querySelectorAll(".example-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const query = btn.dataset.query || btn.textContent.trim();
+                if (query) {
+                    if (landingSearchInput) landingSearchInput.value = query;
+                    performSearch(query);
+                }
+            });
+        });
+
+        // Reset to Landing on Brand click
+        headerBrand?.addEventListener("click", (e) => {
+            e.preventDefault();
+            const url = new URL(window.location);
+            url.searchParams.delete("topic");
+            window.history.pushState({}, "", url.pathname);
+            setViewState("landing");
+        });
+
+        // Reset button on empty/error state card
+        resultsStateResetBtn?.addEventListener("click", () => {
+            const url = new URL(window.location);
+            url.searchParams.delete("topic");
+            window.history.pushState({}, "", url.pathname);
+            setViewState("landing");
+        });
+
+        // Grounded Q&A Form Submission
+        questionForm?.addEventListener("submit", async (e) => {
+            e.preventDefault();
             const question = questionInput?.value.trim();
-            if (!question || !activeQuery) {
-                questionStatus.textContent = "Search for a topic before asking a question.";
-                return;
+            if (!question || !currentQuery) return;
+
+            questionSubmitBtn?.setAttribute("disabled", "disabled");
+            qaResponseBox?.classList.remove("is-hidden");
+            if (qaResponseText) {
+                qaResponseText.textContent = "Synthesizing grounded answer from verified sources...";
             }
-            questionStatus.textContent = "Synthesizing answer from verified sources...";
-            const questionBtn = questionForm.querySelector("button[type='submit']");
-            questionBtn?.setAttribute("disabled", "disabled");
+            if (qaSourcesChips) qaSourcesChips.replaceChildren();
 
             try {
-                const response = await fetch("/api/question", {
+                const res = await fetch("/api/question", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ question, query: activeQuery }),
+                    body: JSON.stringify({ question, query: currentQuery })
                 });
-                const data = await response.json();
-                questionStatus.textContent = data.success
-                    ? `${data.answer} [Supporting sources: ${(data.sources || []).map((source) => source.title).join(", ") || "none"}]`
-                    : (data.error || "Query could not be answered.");
-            } catch (error) {
-                questionStatus.textContent = "Answer temporarily unavailable.";
+
+                const data = await res.json();
+                if (data.success && data.answer) {
+                    if (qaResponseText) qaResponseText.textContent = data.answer;
+                    if (qaSourcesChips && data.sources && data.sources.length > 0) {
+                        data.sources.forEach((s) => {
+                            const chip = document.createElement("a");
+                            chip.className = "source-chip";
+                            chip.textContent = s.title || s.publisher || "Source";
+                            if (s.url) {
+                                chip.href = s.url;
+                                chip.target = "_blank";
+                                chip.rel = "noopener noreferrer";
+                            }
+                            qaSourcesChips.appendChild(chip);
+                        });
+                    }
+                } else {
+                    if (qaResponseText) {
+                        qaResponseText.textContent = data.error || "Unable to answer this question from the available sources.";
+                    }
+                }
+            } catch (err) {
+                if (qaResponseText) {
+                    qaResponseText.textContent = "Question answering is temporarily unavailable.";
+                }
             } finally {
-                questionBtn?.removeAttribute("disabled");
+                questionSubmitBtn?.removeAttribute("disabled");
             }
         });
 
-        // Hydrate from URL query param if present
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialQuery = urlParams.get("topic");
-        if (initialQuery && !searchInput.value) {
-            searchInput.value = initialQuery;
-            updateClearBtn();
-            if (typeof searchForm.requestSubmit === "function") {
-                searchForm.requestSubmit();
+        // Popstate handler for browser back/forward navigation
+        window.addEventListener("popstate", (e) => {
+            const topic = e.state?.topic || new URLSearchParams(window.location.search).get("topic");
+            if (topic) {
+                performSearch(topic);
             } else {
-                searchButton?.click();
+                setViewState("landing");
             }
+        });
+
+        // Initialize state on page load (support ?topic= in URL)
+        const initialParams = new URLSearchParams(window.location.search);
+        const initialTopic = initialParams.get("topic");
+        if (initialTopic) {
+            performSearch(initialTopic);
+        } else {
+            setViewState("landing");
         }
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initializeSearch);
+        document.addEventListener("DOMContentLoaded", initializeApp);
     } else {
-        initializeSearch();
+        initializeApp();
     }
 })();
