@@ -1,41 +1,48 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>News History</title>
-    <meta name="description" content="Explore how a story unfolded over time. Reconstruct chronological timelines and provenance across news coverage.">
+    <meta name="description"
+        content="Explore how a story unfolded over time. Reconstruct chronological timelines and provenance across news coverage.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
     <!-- Minimal Header -->
     <header class="site-header" id="site-header" role="banner">
         <div class="header-container">
             <a class="brand" href="/" id="header-brand" aria-label="News History Home">
+                <span class="brand-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </span>
                 <span class="brand-name">News History</span>
             </a>
             <div class="header-search-wrap is-hidden" id="header-search-wrap">
                 <form class="header-search-form" id="header-search-form" role="search">
                     <div class="search-input-box header-search-box">
                         <span class="search-icon" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>
                         </span>
-                        <input
-                            id="header-topic-search"
-                            type="search"
-                            placeholder="Search a topic, person, event, or organization…"
-                            autocomplete="off"
-                            spellcheck="false"
-                            required
-                        >
-                        <button type="submit" class="explore-btn compact" id="header-search-submit-btn" aria-label="Explore">
+                        <input id="header-topic-search" type="search"
+                            placeholder="Search a topic, person, event, or organization…" autocomplete="off"
+                            spellcheck="false" required>
+                        <button type="submit" class="explore-btn compact" id="header-search-submit-btn"
+                            aria-label="Explore">
                             <span>Explore</span>
                             <span class="btn-arrow" aria-hidden="true">→</span>
                         </button>
@@ -51,27 +58,31 @@
         <!-- 1. Minimal Landing Screen -->
         <section class="landing-view" id="landing-view" aria-label="Search Landing Screen">
             <div class="landing-hero">
+                <div class="landing-brand-mark" aria-hidden="true">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
                 <h1 class="landing-title">News History</h1>
                 <p class="landing-subtitle">Explore how a story unfolded over time.</p>
 
-                <form class="search-form landing-search-form" id="landing-search-form" action="#" method="get" role="search">
-                    <label for="topic-search" class="visually-hidden">Search a topic, person, event, or organization</label>
+                <form class="search-form landing-search-form" id="landing-search-form" action="#" method="get"
+                    role="search">
+                    <label for="topic-search" class="visually-hidden">Search a topic, person, event, or
+                        organization</label>
                     <div class="search-input-box landing-search-box">
                         <span class="search-icon" aria-hidden="true">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>
                         </span>
-                        <input
-                            id="topic-search"
-                            name="topic"
-                            type="search"
-                            placeholder="Search a topic, person, event, or organization…"
-                            autocomplete="off"
-                            spellcheck="false"
-                            required
-                        >
+                        <input id="topic-search" name="topic" type="search"
+                            placeholder="Search a topic, person, event, or organization…" autocomplete="off"
+                            spellcheck="false" required>
                         <button type="submit" class="explore-btn" id="landing-search-submit-btn">
                             <span>Explore</span>
                             <span class="btn-arrow" aria-hidden="true">→</span>
@@ -89,7 +100,8 @@
                     <span class="example-sep" aria-hidden="true">·</span>
                     <button type="button" class="example-btn" data-query="Mumbai floods">Mumbai floods</button>
                     <span class="example-sep" aria-hidden="true">·</span>
-                    <button type="button" class="example-btn" data-query="Semiconductor industry">Semiconductor industry</button>
+                    <button type="button" class="example-btn" data-query="Semiconductor industry">Semiconductor
+                        industry</button>
                 </div>
             </div>
         </section>
@@ -118,14 +130,16 @@
                         <span class="results-stat" id="results-stat-count">Loading coverage...</span>
                     </div>
                     <h1 class="results-title" id="results-title-heading">History of topic</h1>
-                    <p class="results-lead" id="results-lead-text">Timeline of reported events and historical developments.</p>
+                    <p class="results-lead" id="results-lead-text">Timeline of reported events and historical
+                        developments.</p>
                 </div>
 
                 <!-- Empty / Error Notification State -->
                 <div class="results-state-card is-hidden" id="results-state-card" aria-live="polite">
                     <div class="state-icon" id="results-state-icon" aria-hidden="true"></div>
                     <h3 class="state-title" id="results-state-title">No coverage found</h3>
-                    <p class="state-message" id="results-state-msg">Try searching for another topic, company, or historical event.</p>
+                    <p class="state-message" id="results-state-msg">Try searching for another topic, company, or
+                        historical event.</p>
                     <button type="button" class="state-action-btn" id="results-state-reset-btn">Back to Search</button>
                 </div>
 
@@ -133,7 +147,8 @@
                 <div class="timeline-wrapper" id="timeline-wrapper">
                     <div class="timeline-header">
                         <h2 class="timeline-section-title">Timeline</h2>
-                        <span class="timeline-provenance-note">Organized chronologically from multi-source reporting</span>
+                        <span class="timeline-provenance-note">Organized chronologically from multi-source
+                            reporting</span>
                     </div>
 
                     <div class="timeline-tree" id="timeline-tree" aria-live="polite">
@@ -145,19 +160,16 @@
                 <section class="qa-section" id="qa-section" aria-labelledby="qa-title">
                     <div class="qa-header">
                         <h2 id="qa-title" class="qa-title">Ask about this history</h2>
-                        <p class="qa-subtitle">Ask questions about key developments, turning points, or entities in this historical record.</p>
+                        <p class="qa-subtitle">Ask questions about key developments, turning points, or entities in this
+                            historical record.</p>
                     </div>
 
                     <form class="qa-form" id="question-form">
                         <label for="question-input" class="visually-hidden">Ask a question about this history</label>
                         <div class="search-input-box qa-input-box">
-                            <input
-                                id="question-input"
-                                type="text"
-                                placeholder="What were the major turning points in this story?"
-                                autocomplete="off"
-                                required
-                            >
+                            <input id="question-input" type="text"
+                                placeholder="What were the major turning points in this story?" autocomplete="off"
+                                required>
                             <button type="submit" class="explore-btn compact" id="question-submit-btn">
                                 <span>Ask</span>
                                 <span class="btn-arrow" aria-hidden="true">→</span>
@@ -212,4 +224,5 @@
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
+
 </html>
