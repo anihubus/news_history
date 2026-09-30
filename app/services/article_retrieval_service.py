@@ -1,7 +1,7 @@
 from dataclasses import dataclass, replace
 
 from app.models.article import Article
-from app.providers.gdelt_provider import ProviderError, RateLimitError
+from app.providers.base_provider import ProviderError, RateLimitError
 from app.repositories.article_repository import canonicalize_url
 
 

@@ -31,14 +31,14 @@ class MockNewsProviderTestCase(unittest.TestCase):
             app = create_app()
 
         provider = app.extensions["search_orchestrator"].search_service
-        self.assertIsInstance(provider, MockNewsProvider)
+        self.assertIsInstance(provider.providers[0], MockNewsProvider)
 
     def test_gdelt_is_the_default_provider(self):
         with patch.dict(os.environ, {}, clear=True):
             app = create_app()
 
         provider = app.extensions["search_orchestrator"].search_service
-        self.assertIsInstance(provider, GDELTProvider)
+        self.assertIsInstance(provider.providers[0], GDELTProvider)
 
 
 if __name__ == "__main__":

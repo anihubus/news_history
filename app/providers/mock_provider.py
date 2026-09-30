@@ -1,7 +1,8 @@
 from app.models.article import Article
+from app.providers.base_provider import NewsProvider
 
 
-class MockNewsProvider:
+class MockNewsProvider(NewsProvider):
     """Development-only provider with deterministic sample articles."""
 
     def search(self, query):

@@ -4,17 +4,10 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.models.article import Article
+from app.providers.base_provider import NewsProvider, ProviderError, RateLimitError
 
 
-class ProviderError(Exception):
-    """Raised when a news provider cannot return a usable response."""
-
-
-class RateLimitError(ProviderError):
-    """Raised when the provider asks the application to wait before retrying."""
-
-
-class GDELTProvider:
+class GDELTProvider(NewsProvider):
     def __init__(self, base_url, max_results=10, timeout=10):
         self.base_url = base_url
         self.max_results = max_results
