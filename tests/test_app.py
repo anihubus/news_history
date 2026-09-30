@@ -96,6 +96,8 @@ class AppTestCase(unittest.TestCase):
         self.assertIn("supporting_sources", response.json["timeline"][0])
         self.assertIsNotNone(response.json["summary"])
         self.assertIn("provenance_signals", response.json)
+        self.assertIn("verification_signals", response.json)
+        self.assertIn("warning_signals", response.json)
         self.assertEqual(response.json["provenance_signals"]["independent_source_count"], 1)
         self.assertTrue(response.json["results"][0]["publisher_identified"])
         self.assertTrue(response.json["results"][0]["original_url_available"])
@@ -103,6 +105,7 @@ class AppTestCase(unittest.TestCase):
         self.assertTrue(response.json["results"][0]["source_provider_identified"])
         self.assertFalse(response.json["results"][0]["source_information_missing"])
         self.assertIn("provenance_signals", response.json["timeline"][0])
+        self.assertIn("verification_signals", response.json["timeline"][0])
         self.assertEqual(self.app.extensions["article_repository"].count_articles(), 1)
 
     def test_search_with_incomplete_source_metadata_exposes_signals(self):
@@ -125,6 +128,11 @@ class AppTestCase(unittest.TestCase):
         self.assertTrue(res["source_provider_identified"])
         self.assertTrue(res["source_information_missing"])
         self.assertTrue(response.json["provenance_signals"]["source_information_missing"])
+        self.assertIn("verification_signals", res)
+        warning_types = [w["type"] for w in res["verification_signals"]]
+        self.assertIn("missing_publisher", warning_types)
+        self.assertIn("missing_original_url", warning_types)
+        self.assertIn("missing_publication_date", warning_types)
 
     def test_api_keeps_core_results_when_summary_fails(self):
         article = Article(

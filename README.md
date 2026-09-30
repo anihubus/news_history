@@ -4,7 +4,7 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–16 are complete (including Phase 2 Step 16: Source Quality and Provenance Signals). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, and explicit source quality and provenance signals.
+Steps 1–17 are complete (including Phase 2 Step 17: Suspicious-Content Warning Signals). The project provides a Flask application factory, a responsive News History interface, replaceable news providers, SQLite persistence, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, and transparent suspicious-content warning indicators.
 
 ## Features
 
@@ -15,6 +15,7 @@ Steps 1–16 are complete (including Phase 2 Step 16: Source Quality and Provena
 - Detect related articles with explainable weighted keyword overlap.
 - Cross-source agreement and conflict detection.
 - Expose source-quality and provenance signals without subjective credibility rankings.
+- Identify suspicious-content warning signals based on observable metadata and corroboration patterns without truth/fake value judgments.
 - Assemble a chronological timeline from publication dates.
 - Generate grounded mock summaries and question answers from available metadata.
 - Display publishers, providers, publication dates, retrieval timestamps, original URLs, and supporting sources.
@@ -172,6 +173,56 @@ These signals are exposed at all levels of the API (`POST /api/search`):
 - Each result item in `results` includes its individual provenance signals and metadata completeness.
 - Timeline entries in `timeline` and thematic clusters in `groups` provide aggregate signals (`independent_source_count`, `multiple_sources_found`, `source_information_missing`).
 - The frontend renders these signals cleanly via subtle badges, indicators in event cards, metadata statuses in the expandable source drawer, and coverage stats in the research workspace.
+
+## Suspicious-content warning signals
+
+`VerificationSignalService` analyzes articles, clusters, and timeline entries to identify potentially unreliable reporting using transparent warning signals based solely on observable data.
+
+The system adheres to strict neutrality principles:
+- **It DOES NOT declare articles "true" or "fake"**, nor does it produce hoax/debunked verdicts.
+- **It DOES NOT use hidden, unexplained scoring** or arbitrary credibility numbers.
+- **It DOES NOT infer or score political bias.**
+- **It uses calm, neutral, observable editorial language.**
+
+### Structured signal schema
+
+Each signal is structured as a dictionary containing:
+- `type`: Specific signal identifier (e.g. `single_source_only`, `no_independent_supporting_reports`, `conflicting_reports`, `missing_publisher`, `missing_publication_date`, `missing_original_url`, `incomplete_metadata`, `unusually_incomplete_metadata`).
+- `severity`: `"warning"` indicating observational caution.
+- `explanation`: Human-readable, neutral explanation of the observable reporting state.
+- `supporting_article_ids`: List of article IDs associated with the observation.
+
+### Observable warning signals
+
+1. **`single_source_only`**:
+   - Condition: Only one article is retrieved for an event, cluster, or query.
+   - Explanation: `"Limited independent reporting is currently available."`
+2. **`no_independent_supporting_reports`**:
+   - Condition: Multiple articles exist, but all originate from the same publisher.
+   - Explanation: `"Limited independent reporting is currently available."`
+3. **`conflicting_reports`**:
+   - Condition: Reports contain explicit conflict or denial markers (e.g. disputing or contradicting accounts).
+   - Explanation: `"Some reports contain differing information."`
+4. **`missing_publisher`**:
+   - Condition: Publisher is omitted or blank in the source record.
+   - Explanation: `"Publisher information is missing from the source record."`
+5. **`missing_publication_date`**:
+   - Condition: Publication date is missing or invalid.
+   - Explanation: `"Publication date is unavailable in the source metadata."`
+6. **`missing_original_url`**:
+   - Condition: Original source URL is unavailable or empty.
+   - Explanation: `"Original source URL is unavailable."`
+7. **`incomplete_metadata`**:
+   - Condition: One or more key metadata fields (publisher, date, URL, provider) are missing.
+   - Explanation: `"Source metadata is incomplete."`
+8. **`unusually_incomplete_metadata`**:
+   - Condition: Two or more key metadata fields are missing simultaneously.
+   - Explanation: `"Source metadata is unusually incomplete."`
+
+### API and Frontend exposure
+
+- **API**: Exposed via `verification_signals` (and `warning_signals`) in `POST /api/search` at the query root, per article in `results`, per cluster in `groups`, and per event in `timeline`.
+- **Frontend**: Rendered in the timeline event cards, thematic cluster sections, and expandable article rows with clear, calm warning styling that informs users of reporting gaps without making subjective truth claims.
 
 ## SQLite database
 

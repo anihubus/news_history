@@ -6,6 +6,7 @@ from app.services.summary_service import SummaryService
 from app.services.question_answer_service import QuestionAnswerService
 from app.services.provenance_service import ProvenanceService
 from app.services.cross_source_service import CrossSourceService
+from app.services.verification_signal_service import VerificationSignalService
 
 
 class SearchOrchestrator:
@@ -29,6 +30,7 @@ class SearchOrchestrator:
         self.question_answer_service = QuestionAnswerService(ai_provider) if ai_provider else None
         self.provenance_service = ProvenanceService()
         self.cross_source_service = CrossSourceService()
+        self.verification_service = VerificationSignalService()
 
     def search(self, query):
         if not isinstance(query, str) or not query.strip():
@@ -64,6 +66,13 @@ class SearchOrchestrator:
         )
 
         overall_signals = self.provenance_service.collection_signals(retrieval.articles)
+        enriched_groups = self.verification_service.enrich_groups(
+            enriched_groups, retrieval.articles
+        )
+        enriched_timeline = self.verification_service.enrich_timeline(
+            enriched_timeline, retrieval.articles
+        )
+        topic_warnings = self.verification_service.analyze_articles(retrieval.articles)
 
         if retrieval.provider_status != "ok" and not retrieval.articles:
             return {
@@ -77,13 +86,23 @@ class SearchOrchestrator:
                 "summary": self._topic_summary(enriched_summaries),
                 "group_summaries": self._group_summaries(enriched_summaries),
                 "provenance_signals": overall_signals,
+                "verification_signals": [],
+                "warning_signals": [],
                 "error": retrieval.provider_error,
             }
+
+        results_payload = []
+        for article in retrieval.articles:
+            payload = self.provenance_service.article_payload(article)
+            signals = self.verification_service.analyze_article(article)
+            payload["verification_signals"] = signals
+            payload["warning_signals"] = signals
+            results_payload.append(payload)
 
         result = {
             "success": True,
             "query": normalized_query,
-            "results": [self.provenance_service.article_payload(article) for article in retrieval.articles],
+            "results": results_payload,
             "message": None,
             "provider_status": retrieval.provider_status,
             "groups": enriched_groups,
@@ -92,6 +111,8 @@ class SearchOrchestrator:
             "summary": self._topic_summary(enriched_summaries),
             "group_summaries": self._group_summaries(enriched_summaries),
             "provenance_signals": overall_signals,
+            "verification_signals": topic_warnings,
+            "warning_signals": topic_warnings,
         }
         if retrieval.provider_error:
             result["message"] = retrieval.provider_error

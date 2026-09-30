@@ -280,6 +280,45 @@
             return container;
         };
 
+        // Helper to construct neutral verification and warning signals element (Step 17)
+        const createVerificationWarningsElement = (signals) => {
+            if (!signals || signals.length === 0) return null;
+
+            const wrap = document.createElement("div");
+            wrap.className = "verification-warnings-block";
+
+            const header = document.createElement("div");
+            header.className = "verification-warnings-header";
+            header.innerHTML = `
+                <span class="warning-badge-icon" aria-hidden="true">⚠</span>
+                <span class="warning-badge-title">Reporting Observations</span>
+            `;
+            wrap.appendChild(header);
+
+            const list = document.createElement("ul");
+            list.className = "verification-warnings-list";
+
+            signals.forEach((sig) => {
+                const li = document.createElement("li");
+                li.className = "verification-warning-item";
+
+                const icon = document.createElement("span");
+                icon.className = "warning-item-dot";
+                icon.setAttribute("aria-hidden", "true");
+                icon.textContent = "•";
+
+                const text = document.createElement("span");
+                text.className = "warning-item-text";
+                text.textContent = sig.explanation;
+
+                li.append(icon, text);
+                list.appendChild(li);
+            });
+
+            wrap.appendChild(list);
+            return wrap;
+        };
+
         // Render Timeline with Chronological Year Markers, Cross-Source Signals, and Expandable Developments
         const renderTimeline = (timelineData, allArticles, groupsData = []) => {
             if (!timelineTree) return;
@@ -515,6 +554,19 @@
                                 artRow.appendChild(snippet);
                             }
 
+                            const warnList = art.verification_signals || art.warning_signals || [];
+                            if (warnList.length > 0) {
+                                const warnWrap = document.createElement("div");
+                                warnWrap.className = "article-warning-row";
+                                warnList.forEach((w) => {
+                                    const warnPill = document.createElement("span");
+                                    warnPill.className = "article-warning-pill";
+                                    warnPill.textContent = `⚠ ${w.explanation}`;
+                                    warnWrap.appendChild(warnPill);
+                                });
+                                artRow.appendChild(warnWrap);
+                            }
+
                             drawer.appendChild(artRow);
                         });
                     }
@@ -541,6 +593,11 @@
                     const provSignalsElement = createProvenanceSignalsElement(provSignals);
                     if (provSignalsElement) {
                         card.append(provSignalsElement);
+                    }
+                    const warnSignals = entry.verification_signals || entry.warning_signals || associatedGroup?.verification_signals || associatedGroup?.warning_signals;
+                    const warnSignalsElement = createVerificationWarningsElement(warnSignals);
+                    if (warnSignalsElement) {
+                        card.append(warnSignalsElement);
                     }
                     card.append(footerRow, drawer);
 
@@ -635,10 +692,12 @@
                 });
 
                 const provSignalsSection = createProvenanceSignalsElement(group.provenance_signals);
+                const warnSignalsSection = createVerificationWarningsElement(group.verification_signals || group.warning_signals);
 
                 section.append(heading, note);
                 if (signalsSection) section.append(signalsSection);
                 if (provSignalsSection) section.append(provSignalsSection);
+                if (warnSignalsSection) section.append(warnSignalsSection);
                 section.append(sources);
                 groupsList.append(section);
             });
