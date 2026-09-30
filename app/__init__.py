@@ -33,6 +33,8 @@ def create_app(test_config=None):
             "NEWSAPI_BASE_URL",
             "https://newsapi.org/v2/everything",
         ),
+        NEWSAPI_MAX_RESULTS=int(os.getenv("NEWSAPI_MAX_RESULTS", "10")),
+        NEWSAPI_TIMEOUT=float(os.getenv("NEWSAPI_TIMEOUT", "10")),
         DATABASE_PATH=os.getenv("DATABASE_PATH", "instance/news_history.db"),
         SEARCH_RESULT_LIMIT=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
         RELATED_ARTICLE_THRESHOLD=float(os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")),
@@ -44,11 +46,13 @@ def create_app(test_config=None):
 
     initialize_database(app.config["DATABASE_PATH"])
 
-    provider_names_str = app.config.get("NEWS_PROVIDERS")
-    if provider_names_str:
-        provider_names = [p.strip() for p in provider_names_str.split(",")]
+    provider_names_str = app.config.get("NEWS_PROVIDERS") or app.config.get("NEWS_PROVIDER")
+    if provider_names_str and "," in str(provider_names_str):
+        provider_names = [p.strip() for p in str(provider_names_str).split(",") if p.strip()]
+    elif provider_names_str:
+        provider_names = [str(provider_names_str).strip()]
     else:
-        provider_names = [app.config.get("NEWS_PROVIDER", "gdelt")]
+        provider_names = ["gdelt"]
 
     providers_list = []
     for name in provider_names:
@@ -66,10 +70,10 @@ def create_app(test_config=None):
         elif name == "newsapi":
             providers_list.append(
                 NewsAPIProvider(
-                    api_key=app.config["NEWSAPI_KEY"],
+                    api_key=app.config.get("NEWSAPI_KEY"),
                     base_url=app.config["NEWSAPI_BASE_URL"],
-                    max_results=app.config["GDELT_MAX_RESULTS"],
-                    timeout=app.config["GDELT_TIMEOUT"],
+                    max_results=app.config.get("NEWSAPI_MAX_RESULTS", 10),
+                    timeout=app.config.get("NEWSAPI_TIMEOUT", 10.0),
                 )
             )
         else:

@@ -43,6 +43,7 @@ class ArticleRetrievalService:
                         description=article.description if article.description is not None else row["description"],
                         publisher=article.publisher if article.publisher is not None else row["publisher"],
                         publication_date=row["publication_date"] if row["publication_date"] is not None else article.publication_date,
+                        source_provider=row["source_provider"] if row.get("source_provider") else article.source_provider,
                     )
                 )
             provider_articles = updated_provider_articles
@@ -69,11 +70,19 @@ class ArticleRetrievalService:
             canon = canonicalize_url(article.url)
             if canon in articles_by_url:
                 stored = articles_by_url[canon]
+                providers = [p.strip() for p in (stored.source_provider or "").split(",") if p.strip()]
+                for p in (article.source_provider or "").split(","):
+                    p = p.strip()
+                    if p and p not in providers:
+                        providers.append(p)
+                merged_provider = ", ".join(providers) if providers else (article.source_provider or stored.source_provider)
+
                 merged = replace(
                     article,
                     description=article.description if article.description is not None else stored.description,
                     publisher=article.publisher if article.publisher is not None else stored.publisher,
                     publication_date=stored.publication_date if stored.publication_date is not None else article.publication_date,
+                    source_provider=merged_provider,
                     article_id=article.article_id or stored.article_id,
                     retrieved_at=article.retrieved_at or stored.retrieved_at,
                 )

@@ -4,11 +4,15 @@ News History is a web application for exploring the context and historical devel
 
 ## Current status
 
-Steps 1–21 are complete (including Step 21: Automatic News Refresh). The project provides a Flask application factory, a responsive News History interface, live GDELT integration and replaceable news providers, SQLite persistence, real-time news retrieval on every search, automatic frontend polling with configurable refresh intervals, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
+Steps 1–22 are complete (including Step 22: Multiple Real-Time News Sources). The project provides a Flask application factory, a responsive News History interface, multi-provider adapter architecture with live GDELT and NewsAPI integrations, SQLite persistence, real-time news retrieval on every search, cross-provider canonical URL deduplication and provider merging, automatic frontend polling with configurable refresh intervals, local retrieval, deterministic grouping, cross-source verification, an automatically assembled timeline, mock-first grounded AI services, explicit source quality and provenance signals, transparent suspicious-content warning indicators, evidence-based AI verification, and a unified Verification & Sources dashboard.
 
 ## Features
 
-- Search live GDELT coverage or use the deterministic mock provider.
+- Search live GDELT coverage, NewsAPI, or use the deterministic mock provider via the extensible `NewsProvider` adapter architecture.
+- Multi-provider support (`MultiProvider`) combining results across independent providers with isolated failure and rate limit handling.
+- Environment-variable-based credential management (`NEWSAPI_KEY`, etc.) without hardcoded secrets.
+- Cross-provider deduplication using canonical URLs, merging metadata (richer descriptions, publishers, publication dates) and concatenating provider attributions (e.g. `gdelt, newsapi`).
+- Keep provider names visible in provenance signals, article payloads, and the verification dashboard.
 - Retrieve fresh real-time news results from providers on every user search without replacing the SQLite database.
 - Automatic frontend refresh polling with configurable intervals (default: 60s) without full-page reloads or WebSockets.
 - Page Visibility API integration to pause polling when the tab is hidden.

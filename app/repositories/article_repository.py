@@ -56,34 +56,68 @@ class ArticleRepository:
         canonical_url = canonicalize_url(article.url)
 
         with self._connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO articles (
-                    title, url, canonical_url, publisher, publication_date,
-                    description, source_provider, retrieved_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(canonical_url) DO UPDATE SET
-                    retrieved_at = excluded.retrieved_at,
-                    description = COALESCE(description, excluded.description),
-                    publisher = COALESCE(publisher, excluded.publisher),
-                    publication_date = COALESCE(publication_date, excluded.publication_date)
-                """,
-                (
-                    article.title,
-                    article.url,
-                    canonical_url,
-                    article.publisher,
-                    article.publication_date,
-                    article.description,
-                    article.source_provider,
-                    retrieved_at,
-                    created_at,
-                ),
-            )
-            row = connection.execute(
+            existing = connection.execute(
                 "SELECT * FROM articles WHERE canonical_url = ?",
                 (canonical_url,),
             ).fetchone()
+
+            if existing:
+                existing_dict = dict(existing)
+                providers = [p.strip() for p in (existing_dict["source_provider"] or "").split(",") if p.strip()]
+                for p in (article.source_provider or "").split(","):
+                    p = p.strip()
+                    if p and p not in providers:
+                        providers.append(p)
+                merged_provider = ", ".join(providers) if providers else (article.source_provider or existing_dict["source_provider"])
+
+                merged_description = existing_dict["description"] if existing_dict["description"] is not None else article.description
+                merged_publisher = existing_dict["publisher"] if existing_dict["publisher"] is not None else article.publisher
+                merged_pub_date = existing_dict["publication_date"] if existing_dict["publication_date"] is not None else article.publication_date
+
+                connection.execute(
+                    """
+                    UPDATE articles SET
+                        retrieved_at = ?,
+                        description = ?,
+                        publisher = ?,
+                        publication_date = ?,
+                        source_provider = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        retrieved_at,
+                        merged_description,
+                        merged_publisher,
+                        merged_pub_date,
+                        merged_provider,
+                        existing_dict["id"],
+                    ),
+                )
+                row = connection.execute("SELECT * FROM articles WHERE id = ?", (existing_dict["id"],)).fetchone()
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO articles (
+                        title, url, canonical_url, publisher, publication_date,
+                        description, source_provider, retrieved_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        article.title,
+                        article.url,
+                        canonical_url,
+                        article.publisher,
+                        article.publication_date,
+                        article.description,
+                        article.source_provider,
+                        retrieved_at,
+                        created_at,
+                    ),
+                )
+                row = connection.execute(
+                    "SELECT * FROM articles WHERE canonical_url = ?",
+                    (canonical_url,),
+                ).fetchone()
             connection.commit()
 
         return dict(row)
