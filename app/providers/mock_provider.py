@@ -4,6 +4,7 @@ from app.providers.base_provider import NewsProvider
 
 class MockNewsProvider(NewsProvider):
     """Development-only provider with deterministic sample articles."""
+    name = "mock"
 
     def search(self, query):
         return [

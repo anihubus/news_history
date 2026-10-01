@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from app.models.article import Article
 from app.providers.base_provider import ProviderError, RateLimitError
@@ -10,6 +10,7 @@ class RetrievalResult:
     articles: list[Article]
     provider_status: str
     provider_error: str | None = None
+    providers: dict = field(default_factory=dict)
 
 
 class ArticleRetrievalService:
@@ -54,12 +55,47 @@ class ArticleRetrievalService:
             provider_status = "provider_unavailable"
             provider_error = "The news provider is temporarily unavailable."
 
+        providers_info = self._get_providers_status(provider_status)
         combined_articles = self._combine_articles(stored_articles, provider_articles)
         return RetrievalResult(
             articles=self._sort_articles(combined_articles)[: self.result_limit],
             provider_status=provider_status,
             provider_error=provider_error,
+            providers=providers_info,
         )
+
+    def _get_providers_status(self, provider_status):
+        statuses = {
+            "gdelt": {"enabled": False, "success": False},
+            "thenewsapi": {"enabled": False, "success": False},
+        }
+
+        if hasattr(self.news_provider, "get_provider_statuses"):
+            recorded = self.news_provider.get_provider_statuses()
+            for name, st in recorded.items():
+                statuses[name] = st
+        elif hasattr(self.news_provider, "provider_statuses"):
+            recorded = getattr(self.news_provider, "provider_statuses", {})
+            for name, st in recorded.items():
+                statuses[name] = st
+        else:
+            name = getattr(self.news_provider, "name", self.news_provider.__class__.__name__.lower())
+            if "gdelt" in name:
+                p_name = "gdelt"
+            elif "thenewsapi" in name:
+                p_name = "thenewsapi"
+            elif "newsapi" in name:
+                p_name = "newsapi"
+            elif "mock" in name:
+                p_name = "mock"
+            else:
+                p_name = name
+            statuses[p_name] = {
+                "enabled": True,
+                "success": provider_status == "ok",
+            }
+
+        return statuses
 
     def _combine_articles(self, stored_articles, provider_articles):
         articles_by_url = {}
@@ -79,8 +115,8 @@ class ArticleRetrievalService:
 
                 merged = replace(
                     article,
-                    description=article.description if article.description is not None else stored.description,
-                    publisher=article.publisher if article.publisher is not None else stored.publisher,
+                    description=stored.description if stored.description is not None else article.description,
+                    publisher=stored.publisher if stored.publisher is not None else article.publisher,
                     publication_date=stored.publication_date if stored.publication_date is not None else article.publication_date,
                     source_provider=merged_provider,
                     article_id=article.article_id or stored.article_id,

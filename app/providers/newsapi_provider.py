@@ -8,6 +8,8 @@ from app.providers.base_provider import NewsProvider, ProviderError, RateLimitEr
 
 
 class NewsAPIProvider(NewsProvider):
+    name = "newsapi"
+
     def __init__(self, api_key, base_url="https://newsapi.org/v2/everything", max_results=10, timeout=10):
         self.api_key = api_key
         self.base_url = base_url

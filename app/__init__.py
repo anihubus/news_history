@@ -7,6 +7,7 @@ from app.providers.gdelt_provider import GDELTProvider
 from app.providers.mock_provider import MockNewsProvider
 from app.providers.multi_provider import MultiProvider
 from app.providers.newsapi_provider import NewsAPIProvider
+from app.providers.thenewsapi_provider import TheNewsAPIProvider
 from app.providers.ai_provider import MockAIProvider
 from app.repositories.article_repository import ArticleRepository
 from app.services.search_orchestrator import SearchOrchestrator
@@ -35,6 +36,14 @@ def create_app(test_config=None):
         ),
         NEWSAPI_MAX_RESULTS=int(os.getenv("NEWSAPI_MAX_RESULTS", "10")),
         NEWSAPI_TIMEOUT=float(os.getenv("NEWSAPI_TIMEOUT", "10")),
+        THENEWSAPI_ENABLED=os.getenv("THENEWSAPI_ENABLED", "false").lower() in {"1", "true", "yes", "on"},
+        THENEWSAPI_API_KEY=os.getenv("THENEWSAPI_API_KEY"),
+        THENEWSAPI_BASE_URL=os.getenv(
+            "THENEWSAPI_BASE_URL",
+            "https://api.thenewsapi.com/v1",
+        ),
+        THENEWSAPI_MAX_RESULTS=int(os.getenv("THENEWSAPI_MAX_RESULTS", "10")),
+        THENEWSAPI_TIMEOUT=float(os.getenv("THENEWSAPI_TIMEOUT", "10")),
         DATABASE_PATH=os.getenv("DATABASE_PATH", "instance/news_history.db"),
         SEARCH_RESULT_LIMIT=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
         RELATED_ARTICLE_THRESHOLD=float(os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")),
@@ -53,6 +62,20 @@ def create_app(test_config=None):
         provider_names = [str(provider_names_str).strip()]
     else:
         provider_names = ["gdelt"]
+
+    thenewsapi_cfg = app.config.get("THENEWSAPI_ENABLED")
+    if isinstance(thenewsapi_cfg, str):
+        thenewsapi_enabled = thenewsapi_cfg.lower() in {"1", "true", "yes", "on"}
+    else:
+        thenewsapi_enabled = bool(thenewsapi_cfg)
+
+    if thenewsapi_enabled and "thenewsapi" not in [p.lower() for p in provider_names]:
+        if not ("mock" in [p.lower() for p in provider_names] and len(provider_names) == 1):
+            provider_names.append("thenewsapi")
+    elif thenewsapi_cfg is not None and not thenewsapi_enabled and "thenewsapi" in [p.lower() for p in provider_names]:
+        provider_names = [p for p in provider_names if p.lower() != "thenewsapi"]
+        if not provider_names:
+            provider_names = ["gdelt"]
 
     providers_list = []
     for name in provider_names:
@@ -74,6 +97,15 @@ def create_app(test_config=None):
                     base_url=app.config["NEWSAPI_BASE_URL"],
                     max_results=app.config.get("NEWSAPI_MAX_RESULTS", 10),
                     timeout=app.config.get("NEWSAPI_TIMEOUT", 10.0),
+                )
+            )
+        elif name == "thenewsapi":
+            providers_list.append(
+                TheNewsAPIProvider(
+                    api_key=app.config.get("THENEWSAPI_API_KEY"),
+                    base_url=app.config.get("THENEWSAPI_BASE_URL", "https://api.thenewsapi.com/v1"),
+                    max_results=app.config.get("THENEWSAPI_MAX_RESULTS", 10),
+                    timeout=app.config.get("THENEWSAPI_TIMEOUT", 10.0),
                 )
             )
         else:

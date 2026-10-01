@@ -140,9 +140,10 @@
 
         const formatLastUpdatedTime = (date = new Date()) => {
             try {
-                return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+                return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
             } catch {
-                return date.toTimeString().split(" ")[0];
+                const parts = date.toTimeString().split(" ")[0].split(":");
+                return `${parts[0]}:${parts[1]}`;
             }
         };
 
@@ -193,11 +194,23 @@
                 refreshStatusDot.classList.remove("is-error", "is-paused");
             }
 
+            let timeoutId = null;
             try {
+                let abortController = null;
+                if (typeof AbortController !== "undefined") {
+                    abortController = new AbortController();
+                    timeoutId = setTimeout(() => {
+                        try {
+                            abortController.abort();
+                        } catch (_) {}
+                    }, 30000);
+                }
+
                 const response = await fetch("/api/search", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: currentQuery })
+                    body: JSON.stringify({ query: currentQuery }),
+                    signal: abortController ? abortController.signal : undefined
                 });
 
                 const data = await response.json();
@@ -252,28 +265,30 @@
                 // Task 10: Show Last updated: <time>
                 updateLastUpdatedDisplay();
 
-                // Task 7: Detect newly retrieved articles using article ID / canonical URL
+                // Detect newly retrieved articles using article ID when available, canonical URL as fallback
                 const incomingResults = data.results || [];
                 const newlyFoundArticles = [];
 
                 incomingResults.forEach((art) => {
                     const canon = art.url ? canonicalizeUrl(art.url) : "";
-                    const idKnown = art.article_id !== undefined && art.article_id !== null && knownArticleIds.has(art.article_id);
-                    const urlKnown = canon && knownCanonicalUrls.has(canon);
+                    const hasId = art.article_id !== undefined && art.article_id !== null;
+                    const isDisplayed = hasId
+                        ? (knownArticleIds.has(art.article_id) || (canon && knownCanonicalUrls.has(canon)))
+                        : (canon ? knownCanonicalUrls.has(canon) : false);
 
-                    if (!idKnown && !urlKnown) {
+                    if (!isDisplayed) {
                         newlyFoundArticles.push(art);
                         if (canon) knownCanonicalUrls.add(canon);
-                        if (art.article_id !== undefined && art.article_id !== null) {
+                        if (hasId) {
                             knownArticleIds.add(art.article_id);
                         }
                     }
                 });
 
-                // Task 8 & 9 & 10: If new articles arrived, update UI
+                // If new articles arrived, display "New articles available" and update UI
                 if (newlyFoundArticles.length > 0) {
                     if (newArticlesBanner && newArticlesText) {
-                        newArticlesText.textContent = `New articles available (${newlyFoundArticles.length} new article${newlyFoundArticles.length === 1 ? "" : "s"} added)`;
+                        newArticlesText.textContent = "New articles available";
                         newArticlesBanner.classList.remove("is-hidden");
                     }
 
@@ -338,12 +353,15 @@
                 }
 
             } catch (err) {
-                // Task 14: Network failure during poll must not break existing results
+                // Network failure or timeout during poll must not break existing results
                 if (refreshStatusDot) {
                     refreshStatusDot.classList.remove("is-polling");
                     refreshStatusDot.classList.add("is-error");
                 }
             } finally {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
                 isRefreshing = false;
                 if (manualRefreshBtn) {
                     manualRefreshBtn.classList.remove("is-refreshing");
@@ -435,34 +453,34 @@
 
                 let iconText = "";
                 let iconClass = "";
-                let labelText = "";
+                let labelText = sig.label || "";
 
                 const signalName = sig.signal || sig.type;
 
-                if (signalName === "supporting_reports") {
+                if (signalName === "supporting_reports" || signalName === "multiple_sources") {
                     iconText = "✓";
                     iconClass = "cross-source-icon-success";
-                    labelText = sig.statement || sig.explanation || "Reported by multiple sources.";
+                    labelText = labelText || "Multiple sources reporting";
                 } else if (signalName === "conflicting_reports") {
                     iconText = "⚠";
                     iconClass = "cross-source-icon-warning";
-                    labelText = sig.statement || sig.explanation || "Reports contain differing information.";
-                } else if (signalName === "insufficient_cross_source_evidence") {
+                    labelText = labelText || "Conflicting reports detected";
+                } else if (signalName === "insufficient_cross_source_evidence" || signalName === "single_source" || signalName === "single_source_only" || signalName === "single_source_report") {
                     iconText = "⚠";
                     iconClass = "cross-source-icon-warning";
-                    labelText = sig.statement || sig.explanation || "Limited independent reporting available.";
-                } else if (signalName === "incomplete_metadata") {
+                    labelText = labelText || "Single-source report";
+                } else if (signalName === "incomplete_metadata" || signalName === "limited_source_information") {
                     iconText = "⚠";
                     iconClass = "cross-source-icon-warning";
-                    labelText = sig.statement || sig.explanation || "Source metadata is incomplete.";
+                    labelText = labelText || "Limited source information";
                 } else if (signalName === "same_story") {
                     iconText = "ℹ";
                     iconClass = "cross-source-icon-info";
-                    labelText = sig.statement || sig.explanation || "Multiple outlets syndicating same story.";
-                } else if (sig.statement || sig.explanation) {
+                    labelText = labelText || sig.statement || sig.explanation || "Multiple outlets syndicating same story.";
+                } else if (labelText || sig.statement || sig.explanation) {
                     iconText = "ℹ";
                     iconClass = "cross-source-icon-info";
-                    labelText = sig.statement || sig.explanation;
+                    labelText = labelText || sig.statement || sig.explanation;
                 }
 
                 if (labelText) {
@@ -1164,13 +1182,13 @@
                     const statusBadge = document.createElement("span");
                     if (item.is_conflicting) {
                         statusBadge.className = "status-badge status-badge-conflicting";
-                        statusBadge.textContent = "Differing report";
+                        statusBadge.textContent = "Conflicting reports detected";
                     } else if (item.is_supporting && (dashboard?.independent_source_count > 1 || provSignals?.multiple_sources_found)) {
                         statusBadge.className = "status-badge status-badge-supporting";
-                        statusBadge.textContent = "Supporting report";
+                        statusBadge.textContent = "Multiple sources reporting";
                     } else {
                         statusBadge.className = "status-badge status-badge-single";
-                        statusBadge.textContent = "Single source";
+                        statusBadge.textContent = "Single-source report";
                     }
                     badgesWrap.appendChild(statusBadge);
 
@@ -1178,7 +1196,8 @@
                     if (itemWarnings.length > 0) {
                         const warnBadge = document.createElement("span");
                         warnBadge.className = "status-badge status-badge-warning";
-                        warnBadge.textContent = `⚠ ${itemWarnings.length} observation${itemWarnings.length === 1 ? "" : "s"}`;
+                        const hasMeta = itemWarnings.some(w => (w.type || "").includes("metadata") || (w.type || "").includes("missing"));
+                        warnBadge.textContent = hasMeta ? "Limited source information" : `⚠ ${itemWarnings.length} observation${itemWarnings.length === 1 ? "" : "s"}`;
                         badgesWrap.appendChild(warnBadge);
                     }
 

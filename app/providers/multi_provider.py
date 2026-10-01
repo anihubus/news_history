@@ -7,15 +7,29 @@ from app.repositories.article_repository import canonicalize_url
 class MultiProvider(NewsProvider):
     def __init__(self, providers):
         self.providers = providers
+        self.provider_statuses = {}
 
     def search(self, query):
         articles = []
         errors = []
+        provider_statuses = {}
         for provider in self.providers:
+            name = self._get_provider_name(provider)
             try:
-                articles.extend(provider.search(query))
+                provider_articles = provider.search(query)
+                articles.extend(provider_articles)
+                provider_statuses[name] = {
+                    "enabled": True,
+                    "success": True,
+                }
             except Exception as e:
                 errors.append(e)
+                provider_statuses[name] = {
+                    "enabled": True,
+                    "success": False,
+                }
+
+        self.provider_statuses = provider_statuses
 
         # If all providers failed, surface the most relevant error
         if not articles and len(errors) == len(self.providers) and self.providers:
@@ -46,3 +60,29 @@ class MultiProvider(NewsProvider):
                 )
 
         return list(unique_articles.values())
+
+    def get_provider_statuses(self):
+        statuses = dict(self.provider_statuses)
+        for provider in self.providers:
+            name = self._get_provider_name(provider)
+            if name not in statuses:
+                statuses[name] = {
+                    "enabled": True,
+                    "success": False,
+                }
+        return statuses
+
+    @staticmethod
+    def _get_provider_name(provider):
+        if hasattr(provider, "name") and provider.name:
+            return provider.name
+        class_name = provider.__class__.__name__.lower()
+        if "gdelt" in class_name:
+            return "gdelt"
+        if "thenewsapi" in class_name:
+            return "thenewsapi"
+        if "newsapi" in class_name:
+            return "newsapi"
+        if "mock" in class_name:
+            return "mock"
+        return class_name

@@ -76,19 +76,34 @@ class CrossSourceService:
         """
         articles = list(articles or [])
         if not articles:
+            empty_metadata = {
+                "is_complete": False,
+                "complete_article_count": 0,
+                "total_article_count": 0,
+                "incomplete_article_ids": [],
+                "missing_fields": [],
+            }
             return {
                 "independent_source_count": 0,
+                "independent_publishers_count": 0,
+                "number_of_independent_publishers": 0,
                 "supporting_reports": [],
+                "supporting_reports_count": 0,
+                "number_of_supporting_reports": 0,
                 "conflicting_reports": [],
-                "source_metadata_completeness": {
-                    "is_complete": False,
-                    "complete_article_count": 0,
-                    "total_article_count": 0,
-                    "incomplete_article_ids": [],
-                    "missing_fields": [],
-                },
+                "conflicting_reports_count": 0,
+                "possible_conflicting_reports": [],
+                "single_source_stories": [],
+                "single_source_story": False,
+                "is_single_source": False,
+                "source_metadata_completeness": empty_metadata,
+                "missing_source_metadata": empty_metadata,
                 "time_of_first_report": None,
+                "earliest_available_publication_time": None,
+                "earliest_publication_time": None,
                 "time_of_latest_report": None,
+                "latest_available_publication_time": None,
+                "latest_publication_time": None,
                 "signals": [],
             }
 
@@ -173,25 +188,31 @@ class CrossSourceService:
             time_of_first_report = None
             time_of_latest_report = None
 
-        # 5. Neutral signals (each references supporting_article_ids)
+        is_single_source = bool(independent_source_count <= 1 or len(articles) <= 1)
+
+        # 5. Neutral signals (each references supporting_article_ids and article_ids)
         signals = []
 
-        # Multiple sources vs limited independent reporting
+        # Multiple sources vs single source reporting
         if independent_source_count > 1 and supporting_ids:
             signals.append({
                 "signal": "supporting_reports",
                 "type": "supporting_reports",
+                "label": "Multiple sources reporting",
                 "statement": "Reported by multiple sources.",
-                "explanation": "Reported by multiple sources.",
+                "explanation": "Multiple sources reporting",
                 "supporting_article_ids": supporting_ids,
+                "article_ids": supporting_ids,
             })
         else:
             signals.append({
                 "signal": "insufficient_cross_source_evidence",
-                "type": "insufficient_cross_source_evidence",
+                "type": "single_source_report",
+                "label": "Single-source report",
                 "statement": "Limited independent reporting available.",
-                "explanation": "Limited independent reporting available.",
+                "explanation": "Single-source report",
                 "supporting_article_ids": all_ids,
+                "article_ids": all_ids,
             })
 
         # Conflicting reports signal
@@ -199,28 +220,46 @@ class CrossSourceService:
             signals.append({
                 "signal": "conflicting_reports",
                 "type": "conflicting_reports",
+                "label": "Conflicting reports detected",
                 "statement": "Reports contain differing information.",
-                "explanation": "Reports contain differing information.",
+                "explanation": "Conflicting reports detected",
                 "supporting_article_ids": conflicting_ids,
+                "article_ids": conflicting_ids,
             })
 
         # Metadata completeness signal
         if incomplete_ids:
             signals.append({
                 "signal": "incomplete_metadata",
-                "type": "incomplete_metadata",
+                "type": "limited_source_information",
+                "label": "Limited source information",
                 "statement": "Source metadata is incomplete.",
-                "explanation": "Source metadata is incomplete.",
+                "explanation": "Limited source information",
                 "supporting_article_ids": incomplete_ids,
+                "article_ids": incomplete_ids,
             })
 
         return {
             "independent_source_count": independent_source_count,
+            "independent_publishers_count": independent_source_count,
+            "number_of_independent_publishers": independent_source_count,
             "supporting_reports": supporting_ids,
+            "supporting_reports_count": len(supporting_ids),
+            "number_of_supporting_reports": len(supporting_ids),
             "conflicting_reports": conflicting_ids,
+            "conflicting_reports_count": len(conflicting_ids),
+            "possible_conflicting_reports": conflicting_ids,
+            "single_source_stories": all_ids if is_single_source else [],
+            "single_source_story": is_single_source,
+            "is_single_source": is_single_source,
             "source_metadata_completeness": metadata_completeness,
+            "missing_source_metadata": metadata_completeness,
             "time_of_first_report": time_of_first_report,
+            "earliest_available_publication_time": time_of_first_report,
+            "earliest_publication_time": time_of_first_report,
             "time_of_latest_report": time_of_latest_report,
+            "latest_available_publication_time": time_of_latest_report,
+            "latest_publication_time": time_of_latest_report,
             "signals": signals,
         }
 
@@ -245,11 +284,25 @@ class CrossSourceService:
             verification = self.verify_related_articles(group_articles)
             group["cross_source_verification"] = verification
             group["independent_source_count"] = verification["independent_source_count"]
+            group["independent_publishers_count"] = verification["independent_publishers_count"]
+            group["number_of_independent_publishers"] = verification["number_of_independent_publishers"]
             group["supporting_reports"] = verification["supporting_reports"]
+            group["supporting_reports_count"] = verification["supporting_reports_count"]
+            group["number_of_supporting_reports"] = verification["number_of_supporting_reports"]
             group["conflicting_reports"] = verification["conflicting_reports"]
+            group["conflicting_reports_count"] = verification["conflicting_reports_count"]
+            group["possible_conflicting_reports"] = verification["possible_conflicting_reports"]
+            group["single_source_stories"] = verification["single_source_stories"]
+            group["single_source_story"] = verification["single_source_story"]
+            group["is_single_source"] = verification["is_single_source"]
             group["source_metadata_completeness"] = verification["source_metadata_completeness"]
+            group["missing_source_metadata"] = verification["missing_source_metadata"]
             group["time_of_first_report"] = verification["time_of_first_report"]
+            group["earliest_available_publication_time"] = verification["earliest_available_publication_time"]
+            group["earliest_publication_time"] = verification["earliest_publication_time"]
             group["time_of_latest_report"] = verification["time_of_latest_report"]
+            group["latest_available_publication_time"] = verification["latest_available_publication_time"]
+            group["latest_publication_time"] = verification["latest_publication_time"]
             group["cross_source_signals"] = verification["signals"]
 
         return groups

@@ -131,6 +131,43 @@ $env:NEWSAPI_KEY = "your_newsapi_key"
 python run.py
 ```
 
+### The News API (thenewsapi.com)
+
+The News API is integrated as an additional real news provider via the adapter architecture.
+
+1. **How to obtain an API key**:
+   - Register for an account at [thenewsapi.com](https://www.thenewsapi.com/).
+   - Copy your `api_token` from your developer account dashboard.
+
+2. **Required `.env` variables**:
+   Create or edit your `.env` file in the project root:
+   ```text
+   THENEWSAPI_API_KEY=your_thenewsapi_token_here
+   THENEWSAPI_ENABLED=true
+   THENEWSAPI_BASE_URL=https://api.thenewsapi.com/v1
+   THENEWSAPI_TIMEOUT=10
+   ```
+
+3. **How to enable or disable the provider**:
+   - **Enable**: Set `THENEWSAPI_ENABLED=true` in `.env` (or pass `NEWS_PROVIDERS=gdelt,thenewsapi`).
+   - **Disable**: Set `THENEWSAPI_ENABLED=false` or remove `thenewsapi` from `NEWS_PROVIDERS`. When disabled, News History continues using GDELT (and any other active providers) without disruption.
+
+4. **Security warning**:
+   > **SECURITY WARNING**: Never commit your `.env` file or hardcode `THENEWSAPI_API_KEY` into git repositories. Ensure `.env` is listed in `.gitignore`. API keys are backend-only and are never exposed to frontend JavaScript, HTML templates, API responses, logs, or exception messages.
+
+```powershell
+# PowerShell example
+$env:THENEWSAPI_ENABLED = "true"
+$env:THENEWSAPI_API_KEY = "your_thenewsapi_token_here"
+python run.py
+```
+```bash
+# macOS / Linux bash example
+export THENEWSAPI_ENABLED=true
+export THENEWSAPI_API_KEY="your_thenewsapi_token_here"
+python run.py
+```
+
 ## Search endpoint and provider
 
 The frontend sends searches to `POST /api/search` with a JSON body. The Flask route delegates to the Search Orchestrator, which uses the selected provider adapter. The frontend never calls a provider directly.
@@ -151,6 +188,25 @@ python run.py
 ```
 
 If the provider is unavailable or rate-limited, matching stored articles are still returned with a provider status. If no stored matches exist, the API returns a controlled provider error without exposing exceptions. GDELT retrieves available matching coverage and is not the complete historical archive for a topic.
+
+### Multi-provider status in search responses
+
+The search response includes a `providers` status map detailing whether each provider is enabled and whether retrieval succeeded, without exposing any internal credentials:
+
+```json
+{
+  "providers": {
+    "gdelt": {
+      "enabled": true,
+      "success": true
+    },
+    "thenewsapi": {
+      "enabled": true,
+      "success": true
+    }
+  }
+}
+```
 
 ## Related article grouping
 
@@ -356,6 +412,11 @@ The database uses Python's built-in `sqlite3` module; no manual SQL commands or 
 | `GDELT_TIMEOUT` | `10` | Provider request timeout in seconds. |
 | `NEWSAPI_KEY` | None | API key for NewsAPI. |
 | `NEWSAPI_BASE_URL` | `https://newsapi.org/v2/everything` | NewsAPI endpoint. |
+| `THENEWSAPI_ENABLED` | `false` | Enable or disable The News API (`true` or `false`). |
+| `THENEWSAPI_API_KEY` | None | API token for The News API (thenewsapi.com). Kept backend-only. |
+| `THENEWSAPI_BASE_URL` | `https://api.thenewsapi.com/v1` | Base endpoint for The News API. |
+| `THENEWSAPI_TIMEOUT` | `10` | Provider request timeout in seconds. |
+| `THENEWSAPI_MAX_RESULTS` | `10` | Maximum provider results per request. |
 | `DATABASE_PATH` | `instance/news_history.db` | SQLite database location. |
 | `SEARCH_RESULT_LIMIT` | `20` | Final search result limit. |
 | `RELATED_ARTICLE_THRESHOLD` | `0.30` | Deterministic grouping threshold. |

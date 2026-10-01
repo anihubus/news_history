@@ -12,6 +12,7 @@ from app.models.article import Article
 from app.providers.base_provider import NewsProvider, ProviderError, RateLimitError
 from app.providers.gdelt_provider import GDELTProvider
 from app.providers.newsapi_provider import NewsAPIProvider
+from app.providers.thenewsapi_provider import TheNewsAPIProvider
 from app.providers.multi_provider import MultiProvider
 from app.repositories.article_repository import ArticleRepository
 from app.services.article_retrieval_service import ArticleRetrievalService
@@ -278,5 +279,367 @@ class MultipleRealTimeNewsSourcesTestCase(unittest.TestCase):
         self.assertEqual(repo.count_articles(), 1)
 
 
+class Step22MultiProviderRetrievalTestCase(unittest.TestCase):
+    """Test suite verifying Step 22: Multi-provider real-time news retrieval with GDELT & The News API."""
+
+    def setUp(self):
+        self.temp_dir = TemporaryDirectory()
+        self.database_path = os.path.join(self.temp_dir.name, "test_news_step22.db")
+        initialize_database(self.database_path)
+        self.repository = ArticleRepository(self.database_path)
+
+        self.gdelt_payload = {
+            "articles": [
+                {
+                    "title": "Quantum Computing Scalability Milestone",
+                    "url": "https://technews.org/quantum-scalability?utm_source=gdelt",
+                    "domain": "technews.org",
+                    "seendate": "20260930110000",
+                },
+                {
+                    "title": "International Clean Tech Initiative Launched",
+                    "url": "https://cleantech.org/initiative",
+                    "domain": "cleantech.org",
+                    "seendate": "20260930093000",
+                },
+            ]
+        }
+
+        self.thenewsapi_payload = {
+            "meta": {"found": 2, "returned": 2, "limit": 10, "page": 1},
+            "data": [
+                {
+                    "uuid": "thenews-1",
+                    "title": "Next-Gen AI Chips Enter Mass Production",
+                    "description": "Foundries begin shipping next-generation AI hardware accelerators.",
+                    "snippet": "Foundries begin shipping next-generation AI accelerators.",
+                    "url": "https://semiconductornews.com/ai-chips",
+                    "published_at": "2026-09-30T14:00:00Z",
+                    "source": "semiconductornews.com",
+                },
+                {
+                    "title": "Autonomous Marine Survey Completed",
+                    "description": "Uncrewed vessels complete mapping of deep-sea hydrothermal vents.",
+                    "snippet": "Uncrewed vessels complete mapping.",
+                    "url": "https://oceanresearch.org/survey",
+                    "published_at": "2026-09-30T08:00:00Z",
+                    "source": "oceanresearch.org",
+                },
+            ],
+        }
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    # Requirement 14: both providers succeed
+    def test_both_providers_succeed(self):
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(self.gdelt_payload)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(self.thenewsapi_payload)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "technology"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["results"]), 4)
+
+        # Requirement 13: provider status information in backend response
+        providers = data["providers"]
+        self.assertTrue(providers["gdelt"]["enabled"])
+        self.assertTrue(providers["gdelt"]["success"])
+        self.assertTrue(providers["thenewsapi"]["enabled"])
+        self.assertTrue(providers["thenewsapi"]["success"])
+
+        # Both providers represented in results
+        providers_in_results = {a["source_provider"] for a in data["results"]}
+        self.assertIn("gdelt", providers_in_results)
+        self.assertIn("thenewsapi", providers_in_results)
+
+    # Requirement 5 & 14: GDELT fails, The News API succeeds
+    def test_gdelt_fails_thenewsapi_succeeds(self):
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", side_effect=HTTPError("url", 500, "Server Error", None, None)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(self.thenewsapi_payload)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "technology"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["results"]), 2)
+        self.assertTrue(all(a["source_provider"] == "thenewsapi" for a in data["results"]))
+
+        # Requirement 13: Provider status reflects failure and success
+        providers = data["providers"]
+        self.assertTrue(providers["gdelt"]["enabled"])
+        self.assertFalse(providers["gdelt"]["success"])
+        self.assertTrue(providers["thenewsapi"]["enabled"])
+        self.assertTrue(providers["thenewsapi"]["success"])
+
+    # Requirement 6 & 14: The News API fails, GDELT succeeds
+    def test_thenewsapi_fails_gdelt_succeeds(self):
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(self.gdelt_payload)), \
+             patch("app.providers.thenewsapi_provider.urlopen", side_effect=HTTPError("url", 401, "Unauthorized", None, None)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "technology"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["results"]), 2)
+        self.assertTrue(all(a["source_provider"] == "gdelt" for a in data["results"]))
+
+        # Requirement 13: Provider status reflects failure and success
+        providers = data["providers"]
+        self.assertTrue(providers["gdelt"]["enabled"])
+        self.assertTrue(providers["gdelt"]["success"])
+        self.assertTrue(providers["thenewsapi"]["enabled"])
+        self.assertFalse(providers["thenewsapi"]["success"])
+
+    # Requirement 14: both fail
+    def test_both_providers_fail(self):
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", side_effect=HTTPError("url", 500, "Server Error", None, None)), \
+             patch("app.providers.thenewsapi_provider.urlopen", side_effect=HTTPError("url", 429, "Rate Limited", None, None)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "technology"})
+
+        self.assertEqual(response.status_code, 429)
+        data = response.get_json()
+        self.assertFalse(data["success"])
+
+        # Requirement 13: Provider status reflects both failed
+        providers = data["providers"]
+        self.assertTrue(providers["gdelt"]["enabled"])
+        self.assertFalse(providers["gdelt"]["success"])
+        self.assertTrue(providers["thenewsapi"]["enabled"])
+        self.assertFalse(providers["thenewsapi"]["success"])
+
+    # Requirement 8 & 14: duplicate URLs deduplicated
+    def test_duplicate_urls_deduplicated_by_canonical_url(self):
+        shared_canonical = "https://example.com/breakthrough"
+        gdelt_response = {
+            "articles": [
+                {
+                    "title": "Quantum Leap Announced",
+                    "url": f"{shared_canonical}?utm_source=gdelt&utm_medium=social",
+                    "domain": "example.com",
+                    "seendate": "20260930100000",
+                }
+            ]
+        }
+        thenewsapi_response = {
+            "meta": {"found": 1, "returned": 1, "limit": 10, "page": 1},
+            "data": [
+                {
+                    "uuid": "tn-dup-1",
+                    "title": "Quantum Leap Announced",
+                    "description": "Major progress reported in quantum stability.",
+                    "url": shared_canonical,
+                    "published_at": "2026-09-30T10:00:00Z",
+                    "source": "example.com",
+                }
+            ],
+        }
+
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(gdelt_response)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(thenewsapi_response)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "quantum"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["results"]), 1)
+        article = data["results"][0]
+        self.assertIn("gdelt", article["source_provider"])
+        self.assertIn("thenewsapi", article["source_provider"])
+        self.assertEqual(article["description"], "Major progress reported in quantum stability.")
+
+    # Requirement 14: different publishers
+    def test_different_publishers_preserved_and_not_overwritten(self):
+        gdelt_response = {
+            "articles": [
+                {
+                    "title": "Climate Accord Finalized",
+                    "url": "https://reuters.com/climate-accord",
+                    "domain": "reuters.com",
+                    "seendate": "20260930120000",
+                }
+            ]
+        }
+        thenewsapi_response = {
+            "meta": {"found": 1, "returned": 1, "limit": 10, "page": 1},
+            "data": [
+                {
+                    "uuid": "tn-diff-pub",
+                    "title": "Climate Summit Concludes With Historic Pact",
+                    "description": "World leaders commit to new emissions limits.",
+                    "url": "https://bbc.com/climate-summit",
+                    "published_at": "2026-09-30T12:30:00Z",
+                    "source": "BBC News",
+                }
+            ],
+        }
+
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(gdelt_response)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(thenewsapi_response)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "climate"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["results"]), 2)
+
+        publishers = {a["publisher"] for a in data["results"]}
+        self.assertIn("reuters.com", publishers)
+        self.assertIn("BBC News", publishers)
+
+    # Requirement 11, 12, 14: missing publication date preserved and sorted correctly
+    def test_missing_publication_date_preserved_and_sorted(self):
+        gdelt_response = {
+            "articles": [
+                {
+                    "title": "Dated GDELT Article",
+                    "url": "https://example.com/dated-article",
+                    "domain": "example.com",
+                    "seendate": "20260930120000",
+                }
+            ]
+        }
+        thenewsapi_response = {
+            "meta": {"found": 1, "returned": 1, "limit": 10, "page": 1},
+            "data": [
+                {
+                    "uuid": "tn-no-date",
+                    "title": "Undated TheNewsAPI Article",
+                    "description": "Article without published_at metadata.",
+                    "url": "https://example.com/undated-article",
+                    "published_at": None,
+                    "source": "example.com",
+                }
+            ],
+        }
+
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(gdelt_response)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(thenewsapi_response)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "test"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["results"]), 2)
+
+        # The dated article is sorted first
+        self.assertEqual(data["results"][0]["title"], "Dated GDELT Article")
+        self.assertEqual(data["results"][0]["publication_date"], "20260930120000")
+
+        # The undated article preserves publication_date as None (not current time or retrieved_at)
+        self.assertEqual(data["results"][1]["title"], "Undated TheNewsAPI Article")
+        self.assertIsNone(data["results"][1]["publication_date"])
+
+    # Requirement 9, 10, 14: provider metadata preservation
+    def test_provider_metadata_preservation(self):
+        original_url = "https://independent-source.org/exclusive-report?campaign=rss"
+        gdelt_response = {
+            "articles": [
+                {
+                    "title": "Exclusive Field Report",
+                    "url": original_url,
+                    "domain": "independent-source.org",
+                    "seendate": "20260930150000",
+                }
+            ]
+        }
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": "test_token",
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(gdelt_response)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse({"meta": {}, "data": []})):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "exclusive"})
+
+        self.assertEqual(response.status_code, 200)
+        article = response.get_json()["results"][0]
+
+        # Verify all metadata preserved
+        self.assertEqual(article["title"], "Exclusive Field Report")
+        self.assertEqual(article["url"], original_url)
+        self.assertEqual(article["publisher"], "independent-source.org")
+        self.assertEqual(article["publication_date"], "20260930150000")
+        self.assertEqual(article["source_provider"], "gdelt")
+        self.assertIsNotNone(article["retrieved_at"])
+
+    # Requirement 13: Secrets not exposed in responses
+    def test_api_key_not_exposed_in_backend_response(self):
+        secret = "secret_env_token_999888777"
+        with patch.dict(os.environ, {
+            "NEWS_PROVIDERS": "gdelt,thenewsapi",
+            "THENEWSAPI_API_KEY": secret,
+            "THENEWSAPI_ENABLED": "true",
+        }):
+            app = create_app({"DATABASE_PATH": self.database_path})
+
+        with patch("app.providers.gdelt_provider.urlopen", return_value=MockHTTPResponse(self.gdelt_payload)), \
+             patch("app.providers.thenewsapi_provider.urlopen", return_value=MockHTTPResponse(self.thenewsapi_payload)):
+            client = app.test_client()
+            response = client.post("/api/search", json={"query": "test"})
+
+        self.assertEqual(response.status_code, 200)
+        response_text = response.get_data(as_text=True)
+        self.assertNotIn(secret, response_text)
+
+
 if __name__ == "__main__":
     unittest.main()
+

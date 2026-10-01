@@ -8,6 +8,8 @@ from app.providers.base_provider import NewsProvider, ProviderError, RateLimitEr
 
 
 class GDELTProvider(NewsProvider):
+    name = "gdelt"
+
     def __init__(self, base_url, max_results=10, timeout=10):
         self.base_url = base_url
         self.max_results = max_results
