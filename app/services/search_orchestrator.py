@@ -12,13 +12,26 @@ from app.services.verification_signal_service import VerificationSignalService
 class SearchOrchestrator:
     """Coordinate search validation and provider retrieval."""
 
-    def __init__(self, search_service, article_repository, result_limit=20, relationship_threshold=0.30, ai_provider=None):
+    def __init__(
+        self,
+        search_service,
+        article_repository,
+        result_limit=20,
+        relationship_threshold=0.30,
+        ai_provider=None,
+        enable_historical=True,
+        max_historical_ranges=3,
+        historical_date_ranges=None,
+    ):
         self.search_service = search_service
         self.article_repository = article_repository
         self.retrieval_service = ArticleRetrievalService(
             article_repository,
             search_service,
             result_limit=result_limit,
+            enable_historical=enable_historical,
+            max_historical_ranges=max_historical_ranges,
+            historical_date_ranges=historical_date_ranges,
         )
         self.grouping_service = ArticleGroupingService(
             article_repository,

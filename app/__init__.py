@@ -113,6 +113,27 @@ def create_app(test_config=None):
         SEARCH_RESULT_LIMIT=int(
             os.getenv("SEARCH_RESULT_LIMIT", "20")
         ),
+        HISTORICAL_RETRIEVAL_ENABLED=os.getenv(
+            "HISTORICAL_RETRIEVAL_ENABLED",
+            "true",
+        ).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        },
+        THENEWSAPI_HISTORICAL_ENABLED=os.getenv(
+            "THENEWSAPI_HISTORICAL_ENABLED",
+            "true",
+        ).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        },
+        MAX_HISTORICAL_RANGES=int(
+            os.getenv("MAX_HISTORICAL_RANGES", "3")
+        ),
         RELATED_ARTICLE_THRESHOLD=float(
             os.getenv("RELATED_ARTICLE_THRESHOLD", "0.30")
         ),
@@ -325,6 +346,9 @@ def create_app(test_config=None):
                         "THENEWSAPI_TIMEOUT",
                         10.0,
                     ),
+                    historical_date_ranges=app.config.get(
+                        "THENEWSAPI_HISTORICAL_DATE_RANGES"
+                    ),
                 )
             )
 
@@ -371,6 +395,11 @@ def create_app(test_config=None):
     app.extensions["ai_provider"] = ai_provider
     app.extensions["article_repository"] = repository
 
+    enable_historical = bool(
+        app.config.get("HISTORICAL_RETRIEVAL_ENABLED", True)
+        and app.config.get("THENEWSAPI_HISTORICAL_ENABLED", True)
+    )
+
     app.extensions[
         "search_orchestrator"
     ] = SearchOrchestrator(
@@ -383,6 +412,8 @@ def create_app(test_config=None):
             "RELATED_ARTICLE_THRESHOLD"
         ],
         ai_provider=ai_provider,
+        enable_historical=enable_historical,
+        max_historical_ranges=app.config.get("MAX_HISTORICAL_RANGES", 3),
     )
 
     from app.routes.main import main_bp

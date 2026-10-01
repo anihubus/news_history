@@ -16,10 +16,21 @@ class RetrievalResult:
 class ArticleRetrievalService:
     """Combine local article matches with newly retrieved provider articles."""
 
-    def __init__(self, article_repository, news_provider, result_limit=20):
+    def __init__(
+        self,
+        article_repository,
+        news_provider,
+        result_limit=20,
+        enable_historical=True,
+        max_historical_ranges=3,
+        historical_date_ranges=None,
+    ):
         self.article_repository = article_repository
         self.news_provider = news_provider
         self.result_limit = result_limit
+        self.enable_historical = enable_historical
+        self.max_historical_ranges = max_historical_ranges
+        self.historical_date_ranges = historical_date_ranges
 
     def search(self, query):
         normalized_query = query.strip()
@@ -30,24 +41,9 @@ class ArticleRetrievalService:
 
         provider_status = "ok"
         provider_error = None
-        provider_articles = []
+        current_articles = []
         try:
-            provider_articles = self.news_provider.search(normalized_query)
-            saved_rows = self.article_repository.save_articles(provider_articles)
-            updated_provider_articles = []
-            for article, row in zip(provider_articles, saved_rows):
-                updated_provider_articles.append(
-                    replace(
-                        article,
-                        article_id=row["id"],
-                        retrieved_at=row["retrieved_at"],
-                        description=article.description if article.description is not None else row["description"],
-                        publisher=article.publisher if article.publisher is not None else row["publisher"],
-                        publication_date=row["publication_date"] if row["publication_date"] is not None else article.publication_date,
-                        source_provider=row["source_provider"] if row.get("source_provider") else article.source_provider,
-                    )
-                )
-            provider_articles = updated_provider_articles
+            current_articles = self.news_provider.search(normalized_query)
         except RateLimitError:
             provider_status = "rate_limited"
             provider_error = "The news provider is temporarily rate-limited. Please wait before trying again."
@@ -55,14 +51,83 @@ class ArticleRetrievalService:
             provider_status = "provider_unavailable"
             provider_error = "The news provider is temporarily unavailable."
 
+        historical_articles = []
+        if (
+            self.enable_historical
+            and hasattr(self.news_provider, "search_historical")
+            and callable(self.news_provider.search_historical)
+        ):
+            try:
+                historical_articles = self.news_provider.search_historical(
+                    normalized_query,
+                    date_ranges=self.historical_date_ranges,
+                    max_ranges=self.max_historical_ranges,
+                )
+            except RateLimitError:
+                if not current_articles and not stored_articles:
+                    provider_status = "rate_limited"
+                    provider_error = "The news provider is temporarily rate-limited. Please wait before trying again."
+            except ProviderError:
+                if not current_articles and not stored_articles:
+                    provider_status = "provider_unavailable"
+                    provider_error = "The news provider is temporarily unavailable."
+            except Exception:
+                pass
+
+        if historical_articles and not current_articles:
+            if provider_status != "ok":
+                provider_status = "ok"
+                provider_error = None
+
+        new_articles = self._combine_provider_articles(current_articles, historical_articles)
+
+        saved_rows = self.article_repository.save_articles(new_articles)
+        updated_provider_articles = []
+        for article, row in zip(new_articles, saved_rows):
+            updated_provider_articles.append(
+                replace(
+                    article,
+                    article_id=row["id"],
+                    retrieved_at=row["retrieved_at"],
+                    description=article.description if article.description is not None else row["description"],
+                    publisher=article.publisher if article.publisher is not None else row["publisher"],
+                    publication_date=row["publication_date"] if row["publication_date"] is not None else article.publication_date,
+                    source_provider=row["source_provider"] if row.get("source_provider") else article.source_provider,
+                )
+            )
+
         providers_info = self._get_providers_status(provider_status)
-        combined_articles = self._combine_articles(stored_articles, provider_articles)
+        combined_articles = self._combine_articles(stored_articles, updated_provider_articles)
         return RetrievalResult(
             articles=self._sort_articles(combined_articles)[: self.result_limit],
             provider_status=provider_status,
             provider_error=provider_error,
             providers=providers_info,
         )
+
+    @staticmethod
+    def _combine_provider_articles(current_articles, historical_articles):
+        unique = {}
+        for article in current_articles + historical_articles:
+            canon = canonicalize_url(article.url)
+            if canon not in unique:
+                unique[canon] = article
+            else:
+                existing = unique[canon]
+                providers = [p.strip() for p in (existing.source_provider or "").split(",") if p.strip()]
+                for p in (article.source_provider or "").split(","):
+                    p = p.strip()
+                    if p and p not in providers:
+                        providers.append(p)
+                merged_provider = ", ".join(providers) if providers else (article.source_provider or existing.source_provider)
+                unique[canon] = replace(
+                    existing,
+                    description=existing.description if existing.description is not None else article.description,
+                    publisher=existing.publisher if existing.publisher is not None else article.publisher,
+                    publication_date=existing.publication_date if existing.publication_date is not None else article.publication_date,
+                    source_provider=merged_provider,
+                )
+        return list(unique.values())
 
     def _get_providers_status(self, provider_status):
         statuses = {

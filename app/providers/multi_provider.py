@@ -61,6 +61,56 @@ class MultiProvider(NewsProvider):
 
         return list(unique_articles.values())
 
+    def search_historical(self, query, date_ranges=None, max_ranges=3):
+        articles = []
+        errors = []
+        has_historical_provider = False
+
+        for provider in self.providers:
+            if hasattr(provider, "search_historical") and callable(provider.search_historical):
+                has_historical_provider = True
+                name = self._get_provider_name(provider)
+                try:
+                    provider_articles = provider.search_historical(
+                        query, date_ranges=date_ranges, max_ranges=max_ranges
+                    )
+                    articles.extend(provider_articles)
+                except Exception as e:
+                    errors.append(e)
+
+        # If all historical-capable providers failed and produced no articles, surface the error
+        historical_providers_count = sum(
+            1 for p in self.providers if hasattr(p, "search_historical") and callable(p.search_historical)
+        )
+        if not articles and has_historical_provider and len(errors) == historical_providers_count:
+            for e in errors:
+                if isinstance(e, RateLimitError):
+                    raise e
+            raise errors[0]
+
+        # Deduplicate across multiple providers using canonical URL
+        unique_articles = {}
+        for article in articles:
+            url = canonicalize_url(article.url)
+            if url not in unique_articles:
+                unique_articles[url] = article
+            else:
+                existing = unique_articles[url]
+                providers = [p.strip() for p in (existing.source_provider or "").split(",") if p.strip()]
+                if article.source_provider and article.source_provider not in providers:
+                    providers.append(article.source_provider)
+                merged_provider = ", ".join(providers) if providers else existing.source_provider
+
+                unique_articles[url] = replace(
+                    existing,
+                    description=existing.description if existing.description is not None else article.description,
+                    publisher=existing.publisher if existing.publisher is not None else article.publisher,
+                    publication_date=existing.publication_date if existing.publication_date is not None else article.publication_date,
+                    source_provider=merged_provider,
+                )
+
+        return list(unique_articles.values())
+
     def get_provider_statuses(self):
         statuses = dict(self.provider_statuses)
         for provider in self.providers:

@@ -1,7 +1,10 @@
 import json
+import ssl
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+import certifi
 
 from app.models.article import Article
 from app.providers.base_provider import NewsProvider, ProviderError, RateLimitError
@@ -23,7 +26,8 @@ class GDELTProvider(NewsProvider):
         )
 
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            with urlopen(request, timeout=self.timeout, context=ssl_context) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as error:
             if error.code == 429:
