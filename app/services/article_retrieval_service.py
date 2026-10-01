@@ -68,6 +68,7 @@ class ArticleRetrievalService:
         statuses = {
             "gdelt": {"enabled": False, "success": False},
             "thenewsapi": {"enabled": False, "success": False},
+            "newsdata": {"enabled": False, "success": False},
         }
 
         if hasattr(self.news_provider, "get_provider_statuses"):
@@ -84,6 +85,8 @@ class ArticleRetrievalService:
                 p_name = "gdelt"
             elif "thenewsapi" in name:
                 p_name = "thenewsapi"
+            elif "newsdata" in name:
+                p_name = "newsdata"
             elif "newsapi" in name:
                 p_name = "newsapi"
             elif "mock" in name:

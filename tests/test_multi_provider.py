@@ -33,7 +33,13 @@ class MultiProviderTestCase(unittest.TestCase):
         )
 
     def test_configuration_with_multiple_providers(self):
-        with patch.dict(os.environ, {"NEWS_PROVIDERS": "mock,gdelt"}):
+        with patch.dict(
+            os.environ,
+            {
+                "NEWS_PROVIDERS": "mock,gdelt",
+                "NEWSDATA_ENABLED": "false",
+            },
+        ):
             app = create_app()
 
         provider = app.extensions["search_orchestrator"].search_service
@@ -43,7 +49,9 @@ class MultiProviderTestCase(unittest.TestCase):
         self.assertIsInstance(provider.providers[1], GDELTProvider)
 
     def test_provider_failure_isolation(self):
-        successful_provider = StubProvider([self.article("Success", "https://example.com/success")])
+        successful_provider = StubProvider(
+            [self.article("Success", "https://example.com/success")]
+        )
         failed_provider = StubProvider(error=ProviderError("Failed"))
 
         multi_provider = MultiProvider([failed_provider, successful_provider])
@@ -61,21 +69,34 @@ class MultiProviderTestCase(unittest.TestCase):
             multi_provider.search("test")
 
     def test_cross_provider_deduplication(self):
-        provider1 = StubProvider([
-            self.article("Duplicate", "https://example.com/duplicate?utm_source=1"),
-            self.article("Unique 1", "https://example.com/unique1")
-        ])
-        provider2 = StubProvider([
-            self.article("Duplicate", "https://example.com/duplicate#anchor"),
-            self.article("Unique 2", "https://example.com/unique2")
-        ])
+        provider1 = StubProvider(
+            [
+                self.article(
+                    "Duplicate",
+                    "https://example.com/duplicate?utm_source=1",
+                ),
+                self.article("Unique 1", "https://example.com/unique1"),
+            ]
+        )
+        provider2 = StubProvider(
+            [
+                self.article(
+                    "Duplicate",
+                    "https://example.com/duplicate#anchor",
+                ),
+                self.article("Unique 2", "https://example.com/unique2"),
+            ]
+        )
 
         multi_provider = MultiProvider([provider1, provider2])
         results = multi_provider.search("test")
 
         self.assertEqual(len(results), 3)
         urls = [article.url for article in results]
-        self.assertIn("https://example.com/duplicate?utm_source=1", urls)
+        self.assertIn(
+            "https://example.com/duplicate?utm_source=1",
+            urls,
+        )
         self.assertIn("https://example.com/unique1", urls)
         self.assertIn("https://example.com/unique2", urls)
 

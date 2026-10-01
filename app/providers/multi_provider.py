@@ -81,6 +81,8 @@ class MultiProvider(NewsProvider):
             return "gdelt"
         if "thenewsapi" in class_name:
             return "thenewsapi"
+        if "newsdata" in class_name:
+            return "newsdata"
         if "newsapi" in class_name:
             return "newsapi"
         if "mock" in class_name:
